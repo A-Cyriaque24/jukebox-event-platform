@@ -563,6 +563,136 @@ def init_db():
     """)
 
     cursor.execute("""
+    CREATE TABLE IF NOT EXISTS merch_orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_number TEXT NOT NULL UNIQUE,
+        customer_name TEXT NOT NULL,
+        customer_email TEXT NOT NULL,
+        customer_phone TEXT,
+        fulfillment_method TEXT NOT NULL,
+        shipping_address_1 TEXT,
+        shipping_address_2 TEXT,
+        shipping_city TEXT,
+        shipping_state TEXT,
+        shipping_zip TEXT,
+        cart_json TEXT NOT NULL,
+        subtotal_cents INTEGER NOT NULL DEFAULT 0,
+        shipping_cents INTEGER NOT NULL DEFAULT 0,
+        tax_cents INTEGER NOT NULL DEFAULT 0,
+        total_cents INTEGER NOT NULL DEFAULT 0,
+        square_order_id TEXT,
+        square_payment_link_id TEXT,
+        square_payment_url TEXT,
+        square_payment_id TEXT,
+        payment_status TEXT NOT NULL DEFAULT 'Pending',
+        order_status TEXT NOT NULL DEFAULT 'New',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        paid_at TEXT
+    )
+    """)
+
+    cursor.execute("PRAGMA table_info(merch_orders)")
+    merch_order_columns = [row[1] for row in cursor.fetchall()]
+
+    if "confirmation_email_sent_at" not in merch_order_columns:
+        cursor.execute(
+            """
+            ALTER TABLE merch_orders
+            ADD COLUMN confirmation_email_sent_at TEXT
+            """
+        )
+
+    if "owner_notification_sent_at" not in merch_order_columns:
+        cursor.execute(
+            """
+            ALTER TABLE merch_orders
+            ADD COLUMN owner_notification_sent_at TEXT
+            """
+        )
+
+    if "complimentary_reason" not in merch_order_columns:
+        cursor.execute(
+            """
+            ALTER TABLE merch_orders
+            ADD COLUMN complimentary_reason TEXT
+            """
+        )
+
+    if "manual_payment_method" not in merch_order_columns:
+        cursor.execute(
+            """
+            ALTER TABLE merch_orders
+            ADD COLUMN manual_payment_method TEXT
+            """
+        )
+
+    if "manual_payment_notes" not in merch_order_columns:
+        cursor.execute(
+            """
+            ALTER TABLE merch_orders
+            ADD COLUMN manual_payment_notes TEXT
+            """
+        )
+
+    if "shipping_carrier" not in merch_order_columns:
+        cursor.execute(
+            """
+            ALTER TABLE merch_orders
+            ADD COLUMN shipping_carrier TEXT
+            """
+        )
+
+    if "tracking_number" not in merch_order_columns:
+        cursor.execute(
+            """
+            ALTER TABLE merch_orders
+            ADD COLUMN tracking_number TEXT
+            """
+        )
+
+    if "tracking_url" not in merch_order_columns:
+        cursor.execute(
+            """
+            ALTER TABLE merch_orders
+            ADD COLUMN tracking_url TEXT
+            """
+        )
+
+    if "ready_email_sent_at" not in merch_order_columns:
+        cursor.execute(
+            """
+            ALTER TABLE merch_orders
+            ADD COLUMN ready_email_sent_at TEXT
+            """
+        )
+
+    if "shipped_email_sent_at" not in merch_order_columns:
+        cursor.execute(
+            """
+            ALTER TABLE merch_orders
+            ADD COLUMN shipped_email_sent_at TEXT
+            """
+        )
+
+    if "completed_email_sent_at" not in merch_order_columns:
+        cursor.execute(
+            """
+            ALTER TABLE merch_orders
+            ADD COLUMN completed_email_sent_at TEXT
+            """
+        )
+
+    cursor.execute("""
+    CREATE INDEX IF NOT EXISTS idx_merch_orders_email
+    ON merch_orders(customer_email)
+    """)
+
+    cursor.execute("""
+    CREATE INDEX IF NOT EXISTS idx_merch_orders_payment_status
+    ON merch_orders(payment_status)
+    """)
+
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS event_expenses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         event_name TEXT NOT NULL,
@@ -1365,6 +1495,826 @@ def send_html_email(subject, to_email, plain_body, html_body):
         print("Email failed:", e)
         return False
 
+
+
+def send_merch_order_confirmation_email(order, items):
+    import html as html_lib
+
+    recipient = str(order.get("customer_email") or "").strip().lower()
+    customer_name = str(order.get("customer_name") or "Guest").strip()
+    order_number = str(order.get("order_number") or "").strip()
+
+    if not recipient or not order_number:
+        return False
+
+    def money(cents):
+        try:
+            return f"${int(cents or 0) / 100:,.2f}"
+        except (TypeError, ValueError):
+            return "$0.00"
+
+    fulfillment_method = str(
+        order.get("fulfillment_method") or "pickup"
+    ).strip().lower()
+
+    fulfillment_label = (
+        "Shipping"
+        if fulfillment_method == "shipping"
+        else "Local Pickup"
+    )
+
+    plain_item_lines = []
+    html_item_rows = []
+
+    for item in items or []:
+        name = str(item.get("name") or "Merch Item").strip()
+        color = str(item.get("color") or "").strip()
+        size = str(item.get("size") or "").strip()
+
+        try:
+            quantity = max(1, int(item.get("quantity") or 1))
+        except (TypeError, ValueError):
+            quantity = 1
+
+        try:
+            unit_price_cents = int(item.get("unit_price_cents") or 0)
+        except (TypeError, ValueError):
+            unit_price_cents = 0
+
+        line_total_cents = unit_price_cents * quantity
+
+        plain_item_lines.append(
+            f"{quantity} × {name} — {color}, {size} — "
+            f"{money(line_total_cents)}"
+        )
+
+        html_item_rows.append(
+            f"""
+            <tr>
+              <td style="padding:14px 8px;border-bottom:1px solid #292929;">
+                <div style="font-size:15px;font-weight:700;color:#ffffff;">
+                  {html_lib.escape(name)}
+                </div>
+                <div style="margin-top:5px;font-size:13px;color:#bdbdbd;">
+                  {html_lib.escape(color)} · Size {html_lib.escape(size)}
+                </div>
+              </td>
+              <td style="padding:14px 8px;border-bottom:1px solid #292929;text-align:center;color:#ffffff;">
+                {quantity}
+              </td>
+              <td style="padding:14px 8px;border-bottom:1px solid #292929;text-align:right;color:#d4af37;font-weight:700;">
+                {money(line_total_cents)}
+              </td>
+            </tr>
+            """
+        )
+
+    shipping_address_plain = ""
+    shipping_address_html = ""
+
+    if fulfillment_method == "shipping":
+        address_parts = [
+            str(order.get("shipping_address_1") or "").strip(),
+            str(order.get("shipping_address_2") or "").strip(),
+            ", ".join(
+                part
+                for part in [
+                    str(order.get("shipping_city") or "").strip(),
+                    " ".join(
+                        part
+                        for part in [
+                            str(order.get("shipping_state") or "").strip(),
+                            str(order.get("shipping_zip") or "").strip(),
+                        ]
+                        if part
+                    ),
+                ]
+                if part
+            ),
+        ]
+        address_parts = [part for part in address_parts if part]
+
+        shipping_address_plain = "\nShipping address:\n" + "\n".join(
+            address_parts
+        )
+
+        shipping_address_html = (
+            '<div style="margin-top:8px;color:#dddddd;line-height:1.6;">'
+            + "<br>".join(
+                html_lib.escape(part) for part in address_parts
+            )
+            + "</div>"
+        )
+
+    subtotal_cents = int(order.get("subtotal_cents") or 0)
+    shipping_cents = int(order.get("shipping_cents") or 0)
+    total_cents = int(order.get("total_cents") or 0)
+
+    subject = f"Your Jukebox Lounge Order Is Confirmed — {order_number}"
+
+    plain_body = (
+        f"Hi {customer_name},\n\n"
+        "Thank you for shopping with The Jukebox Lounge NC.\n"
+        "Your payment was successful and your merch order is now being processed.\n\n"
+        f"Order number: {order_number}\n"
+        f"Fulfillment: {fulfillment_label}\n\n"
+        "Order details:\n"
+        + "\n".join(plain_item_lines)
+        + "\n\n"
+        f"Subtotal: {money(subtotal_cents)}\n"
+        f"Shipping: {money(shipping_cents)}\n"
+        f"Total: {money(total_cents)}\n"
+        + shipping_address_plain
+        + "\n\n"
+        "All merchandise is made to order. Please allow 7–14 business days "
+        "for production before shipping or pickup.\n\n"
+        "The Jukebox Lounge NC\n"
+        "Where Music, Culture, and Community Meet"
+    )
+
+    html_body = f"""
+    <!doctype html>
+    <html>
+      <body style="margin:0;padding:0;background:#080808;font-family:Arial,Helvetica,sans-serif;color:#ffffff;">
+        <div style="padding:28px 12px;background:#080808;">
+          <div style="max-width:650px;margin:0 auto;background:#111111;border:1px solid #3b3217;border-radius:18px;overflow:hidden;">
+
+            <div style="padding:30px 24px;text-align:center;background:linear-gradient(145deg,#191919,#080808);border-bottom:1px solid #3b3217;">
+              <div style="font-size:12px;letter-spacing:4px;text-transform:uppercase;color:#d4af37;">
+                The Jukebox Lounge NC
+              </div>
+              <h1 style="margin:12px 0 6px;font-family:Georgia,serif;font-size:30px;color:#ffffff;">
+                Order Confirmed
+              </h1>
+              <p style="margin:0;color:#bdbdbd;font-size:14px;">
+                Where Music, Culture, and Community Meet
+              </p>
+            </div>
+
+            <div style="padding:28px 24px;">
+              <p style="margin:0 0 14px;font-size:17px;line-height:1.6;color:#ffffff;">
+                Hi {html_lib.escape(customer_name)},
+              </p>
+
+              <p style="margin:0 0 22px;font-size:15px;line-height:1.7;color:#d0d0d0;">
+                Thank you for shopping with The Jukebox Lounge NC.
+                Your payment was successful, and your merchandise order
+                is now being processed.
+              </p>
+
+              <div style="padding:18px;background:#181818;border:1px solid #302a16;border-radius:12px;">
+                <table role="presentation" style="width:100%;border-collapse:collapse;">
+                  <tr>
+                    <td style="padding:4px 0;color:#999999;font-size:13px;">
+                      Order number
+                    </td>
+                    <td style="padding:4px 0;text-align:right;color:#d4af37;font-size:14px;font-weight:700;">
+                      {html_lib.escape(order_number)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:4px 0;color:#999999;font-size:13px;">
+                      Fulfillment
+                    </td>
+                    <td style="padding:4px 0;text-align:right;color:#ffffff;font-size:14px;">
+                      {html_lib.escape(fulfillment_label)}
+                    </td>
+                  </tr>
+                </table>
+                {shipping_address_html}
+              </div>
+
+              <h2 style="margin:28px 0 10px;font-family:Georgia,serif;font-size:21px;color:#ffffff;">
+                Your Order
+              </h2>
+
+              <table role="presentation" style="width:100%;border-collapse:collapse;">
+                <thead>
+                  <tr>
+                    <th style="padding:10px 8px;text-align:left;border-bottom:1px solid #4a3e1b;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:1px;">
+                      Item
+                    </th>
+                    <th style="padding:10px 8px;text-align:center;border-bottom:1px solid #4a3e1b;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:1px;">
+                      Qty
+                    </th>
+                    <th style="padding:10px 8px;text-align:right;border-bottom:1px solid #4a3e1b;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:1px;">
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {''.join(html_item_rows)}
+                </tbody>
+              </table>
+
+              <div style="margin-top:18px;padding:18px;background:#181818;border-radius:12px;">
+                <table role="presentation" style="width:100%;border-collapse:collapse;">
+                  <tr>
+                    <td style="padding:5px 0;color:#aaaaaa;">Subtotal</td>
+                    <td style="padding:5px 0;text-align:right;color:#ffffff;">
+                      {money(subtotal_cents)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:5px 0;color:#aaaaaa;">Shipping</td>
+                    <td style="padding:5px 0;text-align:right;color:#ffffff;">
+                      {money(shipping_cents)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding-top:12px;border-top:1px solid #353535;color:#ffffff;font-size:17px;font-weight:700;">
+                      Order Total
+                    </td>
+                    <td style="padding-top:12px;border-top:1px solid #353535;text-align:right;color:#d4af37;font-size:20px;font-weight:700;">
+                      {money(total_cents)}
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              <div style="margin-top:24px;padding:18px;border-left:3px solid #d4af37;background:#16140d;border-radius:8px;">
+                <div style="font-size:14px;font-weight:700;color:#ffffff;">
+                  Made to order
+                </div>
+                <div style="margin-top:5px;font-size:13px;line-height:1.6;color:#c7c7c7;">
+                  Please allow 7–14 business days for production before
+                  your order is shipped or ready for pickup.
+                </div>
+              </div>
+            </div>
+
+            <div style="padding:22px;text-align:center;background:#090909;border-top:1px solid #292929;">
+              <div style="font-family:Georgia,serif;font-size:16px;color:#d4af37;">
+                The Jukebox Lounge NC
+              </div>
+              <div style="margin-top:6px;font-size:12px;color:#777777;">
+                Thank you for supporting the lounge.
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    return send_html_email(
+        subject,
+        recipient,
+        plain_body,
+        html_body,
+    )
+
+
+def send_merch_owner_notification_email(order, items):
+    import html as html_lib
+
+    admin_email = (
+        os.getenv("ADMIN_NOTIFICATION_EMAIL", "").strip()
+        or os.getenv("ADMIN_EMAIL", "").strip()
+        or "thejukeboxloungenc@gmail.com"
+    )
+
+    order_number = str(order.get("order_number") or "").strip()
+    customer_name = str(order.get("customer_name") or "Guest").strip()
+    customer_email = str(order.get("customer_email") or "").strip()
+    customer_phone = str(order.get("customer_phone") or "").strip()
+
+    if not admin_email or not order_number:
+        return False
+
+    def money(cents):
+        try:
+            return f"${int(cents or 0) / 100:,.2f}"
+        except (TypeError, ValueError):
+            return "$0.00"
+
+    fulfillment_method = str(
+        order.get("fulfillment_method") or "pickup"
+    ).strip().lower()
+
+    fulfillment_label = (
+        "Shipping"
+        if fulfillment_method == "shipping"
+        else "Local Pickup"
+    )
+
+    plain_item_lines = []
+    html_item_rows = []
+
+    for item in items or []:
+        name = str(item.get("name") or "Merch Item").strip()
+        color = str(item.get("color") or "").strip()
+        size = str(item.get("size") or "").strip()
+
+        try:
+            quantity = max(1, int(item.get("quantity") or 1))
+        except (TypeError, ValueError):
+            quantity = 1
+
+        try:
+            unit_price_cents = int(item.get("unit_price_cents") or 0)
+        except (TypeError, ValueError):
+            unit_price_cents = 0
+
+        line_total_cents = unit_price_cents * quantity
+
+        plain_item_lines.append(
+            f"{quantity} × {name} — {color}, {size} — "
+            f"{money(line_total_cents)}"
+        )
+
+        html_item_rows.append(
+            f"""
+            <tr>
+              <td style="padding:13px 8px;border-bottom:1px solid #303030;">
+                <div style="font-size:15px;font-weight:700;color:#ffffff;">
+                  {html_lib.escape(name)}
+                </div>
+                <div style="margin-top:5px;font-size:13px;color:#bdbdbd;">
+                  {html_lib.escape(color)} · Size {html_lib.escape(size)}
+                </div>
+              </td>
+              <td style="padding:13px 8px;border-bottom:1px solid #303030;text-align:center;color:#ffffff;">
+                {quantity}
+              </td>
+              <td style="padding:13px 8px;border-bottom:1px solid #303030;text-align:right;color:#d4af37;font-weight:700;">
+                {money(line_total_cents)}
+              </td>
+            </tr>
+            """
+        )
+
+    address_parts = []
+
+    if fulfillment_method == "shipping":
+        address_parts = [
+            str(order.get("shipping_address_1") or "").strip(),
+            str(order.get("shipping_address_2") or "").strip(),
+            ", ".join(
+                part
+                for part in [
+                    str(order.get("shipping_city") or "").strip(),
+                    " ".join(
+                        part
+                        for part in [
+                            str(order.get("shipping_state") or "").strip(),
+                            str(order.get("shipping_zip") or "").strip(),
+                        ]
+                        if part
+                    ),
+                ]
+                if part
+            ),
+        ]
+        address_parts = [part for part in address_parts if part]
+
+    address_plain = (
+        "\nShipping address:\n" + "\n".join(address_parts)
+        if address_parts
+        else ""
+    )
+
+    address_html = (
+        "<br>".join(html_lib.escape(part) for part in address_parts)
+        if address_parts
+        else "Customer selected local pickup."
+    )
+
+    subtotal_cents = int(order.get("subtotal_cents") or 0)
+    shipping_cents = int(order.get("shipping_cents") or 0)
+    total_cents = int(order.get("total_cents") or 0)
+
+    subject = f"New Merch Order Received — {order_number}"
+
+    plain_body = (
+        "A new paid merchandise order has been received.\n\n"
+        f"Order number: {order_number}\n"
+        f"Customer: {customer_name}\n"
+        f"Email: {customer_email}\n"
+        f"Phone: {customer_phone}\n"
+        f"Fulfillment: {fulfillment_label}\n"
+        + address_plain
+        + "\n\nOrder details:\n"
+        + "\n".join(plain_item_lines)
+        + "\n\n"
+        f"Subtotal: {money(subtotal_cents)}\n"
+        f"Shipping: {money(shipping_cents)}\n"
+        f"Total paid: {money(total_cents)}\n\n"
+        "Order status: Processing"
+    )
+
+    html_body = f"""
+    <!doctype html>
+    <html>
+      <body style="margin:0;padding:0;background:#080808;font-family:Arial,Helvetica,sans-serif;color:#ffffff;">
+        <div style="padding:28px 12px;background:#080808;">
+          <div style="max-width:650px;margin:0 auto;background:#111111;border:1px solid #3b3217;border-radius:18px;overflow:hidden;">
+
+            <div style="padding:28px 24px;text-align:center;background:linear-gradient(145deg,#1b1b1b,#080808);border-bottom:1px solid #3b3217;">
+              <div style="font-size:12px;letter-spacing:4px;text-transform:uppercase;color:#d4af37;">
+                The Jukebox Lounge NC
+              </div>
+              <h1 style="margin:12px 0 6px;font-family:Georgia,serif;font-size:29px;color:#ffffff;">
+                New Merch Order
+              </h1>
+              <p style="margin:0;color:#bdbdbd;font-size:14px;">
+                Payment confirmed and ready for processing
+              </p>
+            </div>
+
+            <div style="padding:28px 24px;">
+              <div style="padding:18px;background:#181818;border:1px solid #302a16;border-radius:12px;">
+                <table role="presentation" style="width:100%;border-collapse:collapse;">
+                  <tr>
+                    <td style="padding:5px 0;color:#999999;font-size:13px;">
+                      Order number
+                    </td>
+                    <td style="padding:5px 0;text-align:right;color:#d4af37;font-weight:700;">
+                      {html_lib.escape(order_number)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:5px 0;color:#999999;font-size:13px;">
+                      Customer
+                    </td>
+                    <td style="padding:5px 0;text-align:right;color:#ffffff;">
+                      {html_lib.escape(customer_name)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:5px 0;color:#999999;font-size:13px;">
+                      Email
+                    </td>
+                    <td style="padding:5px 0;text-align:right;color:#ffffff;">
+                      {html_lib.escape(customer_email)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:5px 0;color:#999999;font-size:13px;">
+                      Phone
+                    </td>
+                    <td style="padding:5px 0;text-align:right;color:#ffffff;">
+                      {html_lib.escape(customer_phone)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:5px 0;color:#999999;font-size:13px;">
+                      Fulfillment
+                    </td>
+                    <td style="padding:5px 0;text-align:right;color:#ffffff;">
+                      {html_lib.escape(fulfillment_label)}
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              <div style="margin-top:18px;padding:16px;background:#151515;border-radius:10px;">
+                <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#d4af37;">
+                  Fulfillment details
+                </div>
+                <div style="margin-top:8px;color:#dddddd;line-height:1.6;font-size:14px;">
+                  {address_html}
+                </div>
+              </div>
+
+              <h2 style="margin:28px 0 10px;font-family:Georgia,serif;font-size:21px;color:#ffffff;">
+                Order Items
+              </h2>
+
+              <table role="presentation" style="width:100%;border-collapse:collapse;">
+                <thead>
+                  <tr>
+                    <th style="padding:10px 8px;text-align:left;border-bottom:1px solid #4a3e1b;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:1px;">
+                      Item
+                    </th>
+                    <th style="padding:10px 8px;text-align:center;border-bottom:1px solid #4a3e1b;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:1px;">
+                      Qty
+                    </th>
+                    <th style="padding:10px 8px;text-align:right;border-bottom:1px solid #4a3e1b;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:1px;">
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {''.join(html_item_rows)}
+                </tbody>
+              </table>
+
+              <div style="margin-top:18px;padding:18px;background:#181818;border-radius:12px;">
+                <table role="presentation" style="width:100%;border-collapse:collapse;">
+                  <tr>
+                    <td style="padding:5px 0;color:#aaaaaa;">Subtotal</td>
+                    <td style="padding:5px 0;text-align:right;color:#ffffff;">
+                      {money(subtotal_cents)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:5px 0;color:#aaaaaa;">Shipping</td>
+                    <td style="padding:5px 0;text-align:right;color:#ffffff;">
+                      {money(shipping_cents)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding-top:12px;border-top:1px solid #353535;color:#ffffff;font-size:17px;font-weight:700;">
+                      Total Paid
+                    </td>
+                    <td style="padding-top:12px;border-top:1px solid #353535;text-align:right;color:#d4af37;font-size:20px;font-weight:700;">
+                      {money(total_cents)}
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              <div style="margin-top:24px;padding:18px;border-left:3px solid #d4af37;background:#16140d;border-radius:8px;">
+                <div style="font-size:14px;font-weight:700;color:#ffffff;">
+                  Next step
+                </div>
+                <div style="margin-top:5px;font-size:13px;line-height:1.6;color:#c7c7c7;">
+                  Review the order details and begin production.
+                  The current order status is Processing.
+                </div>
+              </div>
+            </div>
+
+            <div style="padding:20px;text-align:center;background:#090909;border-top:1px solid #292929;">
+              <div style="font-family:Georgia,serif;font-size:16px;color:#d4af37;">
+                The Jukebox Lounge NC
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    sent = send_html_email(
+        subject,
+        admin_email,
+        plain_body,
+        html_body,
+    )
+
+    if sent:
+        print(f"[merch-owner-notify] sent to {admin_email}")
+    else:
+        print(f"[merch-owner-notify] failed to send to {admin_email}")
+
+    return sent
+
+
+def send_merch_status_update_email(order, items, status):
+    import html as html_lib
+
+    recipient = str(order.get("customer_email") or "").strip().lower()
+    customer_name = str(order.get("customer_name") or "Customer").strip()
+    order_number = str(order.get("order_number") or "").strip()
+
+    if not recipient or not order_number:
+        return False
+
+    carrier = str(order.get("shipping_carrier") or "").strip()
+    tracking_number = str(order.get("tracking_number") or "").strip()
+    tracking_url = str(order.get("tracking_url") or "").strip()
+
+    item_names = []
+
+    for item in items or []:
+        name = str(item.get("name") or "Merch Item").strip()
+
+        try:
+            quantity = max(1, int(item.get("quantity") or 1))
+        except (TypeError, ValueError):
+            quantity = 1
+
+        item_names.append(
+            f"{quantity} × {name}"
+        )
+
+    items_plain = "\n".join(item_names) or "Merchandise order"
+    items_html = "<br>".join(
+        html_lib.escape(item) for item in item_names
+    ) or "Merchandise order"
+
+    if status == "Ready for Pickup":
+        subject = f"Your Merch Order Is Ready for Pickup — {order_number}"
+
+        headline = "Your Order Is Ready"
+        intro = (
+            "Great news! Your Jukebox Lounge merchandise order is "
+            "finished and ready for pickup."
+        )
+
+        status_details_plain = (
+            "Please reply to this email or contact The Jukebox Lounge NC "
+            "to coordinate your pickup."
+        )
+
+        status_details_html = """
+          <div style="margin-top:18px;padding:18px;background:#16140d;border-left:3px solid #d4af37;border-radius:8px;">
+            <strong style="color:#ffffff;">Pickup instructions</strong>
+            <div style="margin-top:7px;color:#cccccc;line-height:1.6;">
+              Please reply to this email or contact The Jukebox Lounge NC
+              to coordinate your pickup.
+            </div>
+          </div>
+        """
+
+    elif status == "Shipped":
+        subject = f"Your Merch Order Has Shipped — {order_number}"
+
+        headline = "Your Order Has Shipped"
+        intro = (
+            "Your Jukebox Lounge merchandise is on the way."
+        )
+
+        tracking_lines = []
+
+        if carrier:
+            tracking_lines.append(f"Carrier: {carrier}")
+
+        if tracking_number:
+            tracking_lines.append(
+                f"Tracking number: {tracking_number}"
+            )
+
+        if tracking_url:
+            tracking_lines.append(
+                f"Tracking link: {tracking_url}"
+            )
+
+        status_details_plain = (
+            "\n".join(tracking_lines)
+            if tracking_lines
+            else "Tracking information was not provided."
+        )
+
+        tracking_html_parts = []
+
+        if carrier:
+            tracking_html_parts.append(
+                f"<strong>Carrier:</strong> {html_lib.escape(carrier)}"
+            )
+
+        if tracking_number:
+            tracking_html_parts.append(
+                "<strong>Tracking number:</strong> "
+                + html_lib.escape(tracking_number)
+            )
+
+        if tracking_url:
+            safe_tracking_url = html_lib.escape(
+                tracking_url,
+                quote=True,
+            )
+            tracking_html_parts.append(
+                f"""
+                <a
+                  href="{safe_tracking_url}"
+                  style="display:inline-block;margin-top:12px;padding:11px 17px;background:#d4af37;color:#111111;text-decoration:none;border-radius:8px;font-weight:800;"
+                >
+                  Track Your Package
+                </a>
+                """
+            )
+
+        status_details_html = (
+            """
+            <div style="margin-top:18px;padding:18px;background:#16140d;border-left:3px solid #d4af37;border-radius:8px;line-height:1.8;color:#cccccc;">
+            """
+            + (
+                "<br>".join(tracking_html_parts)
+                if tracking_html_parts
+                else "Tracking information was not provided."
+            )
+            + "</div>"
+        )
+
+    elif status == "Completed":
+        subject = f"Thank You for Your Merch Order — {order_number}"
+
+        headline = "Order Completed"
+        intro = (
+            "Your Jukebox Lounge merchandise order has been marked "
+            "complete. Thank you for supporting the lounge."
+        )
+
+        status_details_plain = (
+            "We hope you enjoy your merchandise and appreciate your support."
+        )
+
+        status_details_html = """
+          <div style="margin-top:18px;padding:18px;background:#16140d;border-left:3px solid #d4af37;border-radius:8px;">
+            <strong style="color:#ffffff;">Thank you for your support</strong>
+            <div style="margin-top:7px;color:#cccccc;line-height:1.6;">
+              We hope you enjoy your merchandise. Your support helps
+              The Jukebox Lounge NC continue building community through
+              music and culture.
+            </div>
+          </div>
+        """
+
+    else:
+        return False
+
+    plain_body = (
+        f"Hi {customer_name},\n\n"
+        f"{intro}\n\n"
+        f"Order number: {order_number}\n"
+        f"Order status: {status}\n\n"
+        f"Items:\n{items_plain}\n\n"
+        f"{status_details_plain}\n\n"
+        "The Jukebox Lounge NC\n"
+        "Where Music, Culture, and Community Meet"
+    )
+
+    html_body = f"""
+    <!doctype html>
+    <html>
+      <body style="margin:0;padding:0;background:#080808;font-family:Arial,Helvetica,sans-serif;color:#ffffff;">
+        <div style="padding:28px 12px;background:#080808;">
+          <div style="max-width:640px;margin:0 auto;background:#111111;border:1px solid #3b3217;border-radius:18px;overflow:hidden;">
+
+            <div style="padding:30px 24px;text-align:center;background:linear-gradient(145deg,#191919,#080808);border-bottom:1px solid #3b3217;">
+              <div style="font-size:12px;letter-spacing:4px;text-transform:uppercase;color:#d4af37;">
+                The Jukebox Lounge NC
+              </div>
+
+              <h1 style="margin:12px 0 6px;font-family:Georgia,serif;font-size:30px;color:#ffffff;">
+                {html_lib.escape(headline)}
+              </h1>
+
+              <p style="margin:0;color:#bdbdbd;font-size:14px;">
+                Where Music, Culture, and Community Meet
+              </p>
+            </div>
+
+            <div style="padding:28px 24px;">
+              <p style="margin:0 0 14px;font-size:17px;color:#ffffff;">
+                Hi {html_lib.escape(customer_name)},
+              </p>
+
+              <p style="margin:0 0 22px;font-size:15px;line-height:1.7;color:#d0d0d0;">
+                {html_lib.escape(intro)}
+              </p>
+
+              <div style="padding:18px;background:#181818;border:1px solid #302a16;border-radius:12px;">
+                <table role="presentation" style="width:100%;border-collapse:collapse;">
+                  <tr>
+                    <td style="padding:5px 0;color:#999999;">
+                      Order number
+                    </td>
+                    <td style="padding:5px 0;text-align:right;color:#d4af37;font-weight:700;">
+                      {html_lib.escape(order_number)}
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td style="padding:5px 0;color:#999999;">
+                      Status
+                    </td>
+                    <td style="padding:5px 0;text-align:right;color:#ffffff;">
+                      {html_lib.escape(status)}
+                    </td>
+                  </tr>
+                </table>
+              </div>
+
+              <div style="margin-top:18px;padding:18px;background:#181818;border-radius:12px;">
+                <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#d4af37;">
+                  Order Items
+                </div>
+
+                <div style="margin-top:9px;color:#ffffff;line-height:1.7;">
+                  {items_html}
+                </div>
+              </div>
+
+              {status_details_html}
+            </div>
+
+            <div style="padding:21px;text-align:center;background:#090909;border-top:1px solid #292929;">
+              <div style="font-family:Georgia,serif;font-size:16px;color:#d4af37;">
+                The Jukebox Lounge NC
+              </div>
+              <div style="margin-top:6px;font-size:12px;color:#777777;">
+                Thank you for supporting the lounge.
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    return send_html_email(
+        subject,
+        recipient,
+        plain_body,
+        html_body,
+    )
 
 def send_membership_welcome_email(name, email):
     recipient = (email or "").strip()
@@ -5249,140 +6199,932 @@ def sponsors():
 # -------------------------
 # MERCH PAGE
 # -------------------------
-@app.route("/merch")
-def merch():
-    merch_items = [
+def get_merch_catalog():
+    return [
         {
-            "id": "nc-born-bull-city-olive-1",
-            "name": "NC Born. Bull City Made Tee",
-            "color": "Garment-Dyed Olive",
-            "image": "images/merch/4EB5671C-9CD6-42BA-A236-EF573E3E1963 2.PNG",
-            "details": ["Vintage Wash Finish", "Front & Back Prints", "Unisex Fit", "Soft, Pre-Shrunk Cotton"],
-            "price": "$35.00",
-            "checkout_link": os.getenv("MERCH_LINK_NC_BORN_1", "").strip(),
+            "id": "bull-city-nights",
+            "name": "Bull City Nights",
+            "description": (
+                "A Bull City-inspired Jukebox Lounge tee featuring a small "
+                "left-chest print and a bold full-back Durham design."
+            ),
+            "colors": [
+                {
+                    "name": "Black",
+                    "slug": "black",
+                    "image": "images/merch/bull-city-nights-black.png",
+                },
+                {
+                    "name": "White",
+                    "slug": "white",
+                    "image": "images/merch/bull-city-nights-white.png",
+                },
+                {
+                    "name": "Gold",
+                    "slug": "gold",
+                    "image": "images/merch/bull-city-nights-gold.png",
+                },
+                {
+                    "name": "Sand",
+                    "slug": "sand",
+                    "image": "images/merch/bull-city-nights-sand.png",
+                },
+                {
+                    "name": "Chocolate Brown",
+                    "slug": "chocolate-brown",
+                    "image": "images/merch/bull-city-nights-chocolate-brown.png",
+                },
+            ],
+            "sizes": [
+                {"name": "Small", "value": "S", "price": 30.00},
+                {"name": "Medium", "value": "M", "price": 30.00},
+                {"name": "Large", "value": "L", "price": 35.00},
+                {"name": "XL", "value": "XL", "price": 35.00},
+                {"name": "2XL", "value": "2XL", "price": 40.00},
+            ],
+            "starting_price": 30.00,
+            "production_time": "7–14 business days",
+            "details": [
+                "Small left-chest print",
+                "Large full-back print",
+                "Regular cotton T-shirt",
+                "Made to order",
+            ],
         },
         {
-            "id": "jukebox-charcoal-vinyl",
-            "name": "Jukebox Lounge NC Tee",
-            "color": "Garment-Dyed Charcoal",
-            "image": "images/merch/88A57182-D013-459D-910B-A5BF4389D284 2.PNG",
-            "details": ["Vintage Wash Finish", "Front & Back Prints", "Unisex Fit"],
-            "price": "$35.00",
-            "checkout_link": os.getenv("MERCH_LINK_CHARCOAL", "").strip(),
+            "id": "good-vibes-lounge",
+            "name": "Good Vibes Lounge",
+            "description": (
+                "Bring the lounge energy wherever you go. Good Vibes Lounge "
+                "features a clean chest design and a bold full-back graphic "
+                "inspired by music, community, and the atmosphere of "
+                "The Jukebox Lounge NC."
+            ),
+            "colors": [
+                {
+                    "name": "Black",
+                    "slug": "black",
+                    "image": "images/merch/good-vibes-lounge-black.png",
+                },
+                {
+                    "name": "Sand",
+                    "slug": "sand",
+                    "image": "images/merch/good-vibes-lounge-sand.png",
+                },
+                {
+                    "name": "White",
+                    "slug": "white",
+                    "image": "images/merch/good-vibes-lounge-white.png",
+                },
+            ],
+            "sizes": [
+                {"name": "Small", "value": "S", "price": 30.00},
+                {"name": "Medium", "value": "M", "price": 30.00},
+                {"name": "Large", "value": "L", "price": 35.00},
+                {"name": "XL", "value": "XL", "price": 35.00},
+                {"name": "2XL", "value": "2XL", "price": 40.00},
+            ],
+            "starting_price": 30.00,
+            "production_time": "7–14 business days",
+            "details": [
+                "Small front-chest print",
+                "Large full-back print",
+                "Regular cotton T-shirt",
+                "Made to order",
+            ],
         },
         {
-            "id": "jukebox-olive-good-vibes",
-            "name": "The Jukebox Lounge NC Tee",
-            "color": "Garment-Dyed Olive",
-            "image": "images/merch/A7D4176F-E18F-4BD1-8578-B67C400E9C7B 2.PNG",
-            "details": ["Vintage Wash Finish", "Front & Back Prints", "Unisex Fit", "Soft, Pre-Shrunk Cotton"],
-            "price": "$35.00",
-            "checkout_link": os.getenv("MERCH_LINK_GOOD_VIBES", "").strip(),
+            "id": "bull-city-legacy",
+            "name": "Bull City Legacy",
+            "description": (
+                "A tribute to Durham roots and Bull City pride. Bull City "
+                "Legacy features a clean front-chest design and a bold "
+                "full-back graphic celebrating the community and culture "
+                "behind The Jukebox Lounge NC."
+            ),
+            "colors": [
+                {
+                    "name": "Gold",
+                    "slug": "gold",
+                    "image": "images/merch/bull-city-legacy-gold.png",
+                },
+                {
+                    "name": "Sand",
+                    "slug": "sand",
+                    "image": "images/merch/bull-city-legacy-sand.png",
+                },
+                {
+                    "name": "White",
+                    "slug": "white",
+                    "image": "images/merch/bull-city-legacy-white.png",
+                },
+            ],
+            "sizes": [
+                {"name": "Small", "value": "S", "price": 30.00},
+                {"name": "Medium", "value": "M", "price": 30.00},
+                {"name": "Large", "value": "L", "price": 35.00},
+                {"name": "XL", "value": "XL", "price": 35.00},
+                {"name": "2XL", "value": "2XL", "price": 40.00},
+            ],
+            "starting_price": 30.00,
+            "production_time": "7–14 business days",
+            "details": [
+                "Small front-chest print",
+                "Large full-back print",
+                "Regular cotton T-shirt",
+                "Made to order",
+            ],
         },
         {
-            "id": "nc-born-bull-city-olive-2",
-            "name": "NC Born. Bull City Made Tee",
-            "color": "Garment-Dyed Olive",
-            "image": "images/merch/D00ED9D3-6891-4C72-83F4-17BC81A40A01 2.PNG",
-            "details": ["Vintage Wash Finish", "Front & Back Prints", "Unisex Fit", "Soft, Pre-Shrunk Cotton"],
-            "price": "$35.00",
-            "checkout_link": os.getenv("MERCH_LINK_NC_BORN_2", "").strip(),
+            "id": "never-gets-old",
+            "name": "Never Gets Old",
+            "description": (
+                "A timeless tribute to the music and memories that never go "
+                "out of style. Never Gets Old features a clean front-chest "
+                "design and a bold full-back graphic inspired by vinyl, "
+                "good music, and The Jukebox Lounge NC experience."
+            ),
+            "colors": [
+                {
+                    "name": "Graphite Heather",
+                    "slug": "graphite-heather",
+                    "image": "images/merch/never-gets-old-graphite-heather.png",
+                },
+                {
+                    "name": "Military Green",
+                    "slug": "military-green",
+                    "image": "images/merch/never-gets-old-military-green.png",
+                },
+                {
+                    "name": "Black",
+                    "slug": "black",
+                    "image": "images/merch/never-gets-old-black.png",
+                },
+            ],
+            "sizes": [
+                {"name": "Small", "value": "S", "price": 30.00},
+                {"name": "Medium", "value": "M", "price": 30.00},
+                {"name": "Large", "value": "L", "price": 35.00},
+                {"name": "XL", "value": "XL", "price": 35.00},
+                {"name": "2XL", "value": "2XL", "price": 40.00},
+            ],
+            "starting_price": 30.00,
+            "production_time": "7–14 business days",
+            "details": [
+                "Small front-chest print",
+                "Large full-back print",
+                "Regular cotton T-shirt",
+                "Made to order",
+            ],
         },
         {
-            "id": "jukebox-black-durham",
-            "name": "The Jukebox Lounge NC Tee",
-            "color": "Garment-Dyed Black",
-            "image": "images/merch/D866546A-2006-429A-BC19-A1C33525E9C6 2.PNG",
-            "details": ["Vintage Wash Finish", "Front & Back Prints", "Unisex Fit", "Soft, Pre-Shrunk Cotton"],
-            "price": "$35.00",
-            "checkout_link": os.getenv("MERCH_LINK_BLACK_DURHAM", "").strip(),
+            "id": "bull-city-made",
+            "name": "Bull City Made",
+            "description": (
+                "Bull City Made celebrates Durham roots with a clean "
+                "front-chest design and a bold full-back graphic inspired "
+                "by Bull City culture, community, and The Jukebox Lounge NC."
+            ),
+            "colors": [
+                {
+                    "name": "Sand",
+                    "slug": "sand",
+                    "image": "images/merch/bull-city-made-sand.png",
+                },
+                {
+                    "name": "Gold",
+                    "slug": "gold",
+                    "image": "images/merch/bull-city-made-gold.png",
+                },
+                {
+                    "name": "White",
+                    "slug": "white",
+                    "image": "images/merch/bull-city-made-white.png",
+                },
+            ],
+            "sizes": [
+                {"name": "Small", "value": "S", "price": 30.00},
+                {"name": "Medium", "value": "M", "price": 30.00},
+                {"name": "Large", "value": "L", "price": 35.00},
+                {"name": "XL", "value": "XL", "price": 35.00},
+                {"name": "2XL", "value": "2XL", "price": 40.00},
+            ],
+            "starting_price": 30.00,
+            "production_time": "7–14 business days",
+            "details": [
+                "Small front-chest print",
+                "Large full-back print",
+                "Regular cotton T-shirt",
+                "Made to order",
+            ],
         },
         {
-            "id": "jukebox-olive-never-old",
-            "name": "Jukebox Lounge NC Tee",
-            "color": "Garment-Dyed Olive",
-            "image": "images/merch/D9FCCF11-2794-45B2-B05C-34832CD8A1AC 2.PNG",
-            "details": ["Vintage Wash Finish", "Front, Back & Sleeve Prints", "Unisex Fit"],
-            "price": "$35.00",
-            "checkout_link": os.getenv("MERCH_LINK_NEVER_OLD", "").strip(),
+            "id": "after-dark-jukebox",
+            "name": "After Dark Jukebox",
+            "description": (
+                "After Dark Jukebox brings a bold late-night lounge feel "
+                "with a full front graphic and matching full-back print "
+                "inspired by music, nightlife, and The Jukebox Lounge NC."
+            ),
+            "colors": [
+                {
+                    "name": "Heather Dark Grey",
+                    "slug": "heather-dark-grey",
+                    "image": "images/merch/after-dark-jukebox-heather-dark-grey.png",
+                },
+                {
+                    "name": "Black",
+                    "slug": "black",
+                    "image": "images/merch/after-dark-jukebox-black.png",
+                },
+                {
+                    "name": "Maroon",
+                    "slug": "maroon",
+                    "image": "images/merch/after-dark-jukebox-maroon.png",
+                },
+            ],
+            "sizes": [
+                {"name": "Small", "value": "S", "price": 35.00},
+                {"name": "Medium", "value": "M", "price": 35.00},
+                {"name": "Large", "value": "L", "price": 40.00},
+                {"name": "XL", "value": "XL", "price": 40.00},
+                {"name": "2XL", "value": "2XL", "price": 45.00},
+            ],
+            "starting_price": 35.00,
+            "production_time": "7–14 business days",
+            "details": [
+                "Full front print",
+                "Full back print",
+                "Regular cotton T-shirt",
+                "Made to order",
+            ],
         },
     ]
-    return render_template("merch.html", merch_items=merch_items)
+
+
+@app.route("/merch")
+def merch():
+    return render_template(
+        "merch.html",
+        merch_items=get_merch_catalog(),
+    )
+
+
+@app.route("/merch/<product_id>")
+def merch_product(product_id):
+    product = next(
+        (
+            item
+            for item in get_merch_catalog()
+            if item["id"] == product_id
+        ),
+        None,
+    )
+
+    if not product:
+        return redirect("/merch")
+
+    return render_template(
+        "merch_product.html",
+        product=product,
+    )
+
 
 # -------------------------
 # MERCH CHECKOUT
 # -------------------------
+@app.route("/merch/checkout", methods=["GET"])
+def merch_checkout_page():
+    return render_template("merch_checkout.html")
+
+
+@app.route("/merch/order-complete")
+def merch_order_complete():
+    order_number = str(
+        request.args.get("order_number") or ""
+    ).strip()
+
+    order = None
+    items = []
+
+    if order_number:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT *
+            FROM merch_orders
+            WHERE order_number = ?
+            LIMIT 1
+            """,
+            (order_number,),
+        )
+
+        row = cursor.fetchone()
+
+        if row:
+            order = dict(row)
+
+            try:
+                items = json.loads(order.get("cart_json") or "[]")
+            except (TypeError, ValueError):
+                items = []
+
+            square_order_id = str(
+                order.get("square_order_id") or ""
+            ).strip()
+
+            if square_order_id:
+                square_order = square_retrieve_order(square_order_id) or {}
+                tenders = square_order.get("tenders") or []
+
+                payment_id = ""
+
+                for tender in tenders:
+                    candidate = str(
+                        tender.get("payment_id") or ""
+                    ).strip()
+
+                    if candidate:
+                        payment_id = candidate
+                        break
+
+                if payment_id:
+                    payment = square_retrieve_payment(payment_id) or {}
+                    square_payment_status = str(
+                        payment.get("status") or ""
+                    ).upper()
+
+                    if square_payment_status == "COMPLETED":
+                        cursor.execute(
+                            """
+                            UPDATE merch_orders
+                            SET
+                                square_payment_id = ?,
+                                payment_status = 'Paid',
+                                order_status = 'Processing',
+                                paid_at = COALESCE(
+                                    paid_at,
+                                    CURRENT_TIMESTAMP
+                                )
+                            WHERE order_number = ?
+                            """,
+                            (payment_id, order_number),
+                        )
+                        conn.commit()
+
+                        order["square_payment_id"] = payment_id
+                        order["payment_status"] = "Paid"
+                        order["order_status"] = "Processing"
+
+                        if not order.get("confirmation_email_sent_at"):
+                            email_sent = send_merch_order_confirmation_email(
+                                order,
+                                items,
+                            )
+
+                            if email_sent:
+                                cursor.execute(
+                                    """
+                                    UPDATE merch_orders
+                                    SET confirmation_email_sent_at =
+                                        CURRENT_TIMESTAMP
+                                    WHERE order_number = ?
+                                      AND confirmation_email_sent_at IS NULL
+                                    """,
+                                    (order_number,),
+                                )
+                                conn.commit()
+                                order["confirmation_email_sent_at"] = (
+                                    datetime.now().isoformat()
+                                )
+
+                        if not order.get("owner_notification_sent_at"):
+                            owner_email_sent = (
+                                send_merch_owner_notification_email(
+                                    order,
+                                    items,
+                                )
+                            )
+
+                            if owner_email_sent:
+                                cursor.execute(
+                                    """
+                                    UPDATE merch_orders
+                                    SET owner_notification_sent_at =
+                                        CURRENT_TIMESTAMP
+                                    WHERE order_number = ?
+                                      AND owner_notification_sent_at IS NULL
+                                    """,
+                                    (order_number,),
+                                )
+                                conn.commit()
+                                order["owner_notification_sent_at"] = (
+                                    datetime.now().isoformat()
+                                )
+
+        conn.close()
+
+    return render_template(
+        "merch_order_complete.html",
+        order=order,
+        items=items,
+    )
+
+
 @app.route("/merch/checkout", methods=["POST"])
 def merch_checkout():
+    payload = request.get_json(silent=True) or {}
+
+    customer_name = str(payload.get("customer_name") or "").strip()
+    customer_email = str(payload.get("customer_email") or "").strip().lower()
+    customer_phone = str(payload.get("customer_phone") or "").strip()
+
+    phone_digits = re.sub(r"\D", "", customer_phone)
+
+    if len(phone_digits) == 10:
+        square_customer_phone = f"+1{phone_digits}"
+    elif len(phone_digits) == 11 and phone_digits.startswith("1"):
+        square_customer_phone = f"+{phone_digits}"
+    elif customer_phone.startswith("+") and 10 <= len(phone_digits) <= 15:
+        square_customer_phone = f"+{phone_digits}"
+    else:
+        return {
+            "success": False,
+            "error": "Please enter a valid 10-digit phone number.",
+        }, 400
+
+    fulfillment_method = str(
+        payload.get("fulfillment_method") or "pickup"
+    ).strip().lower()
+    cart = payload.get("cart") or []
+
+    if not customer_name or not customer_email or not customer_phone:
+        return {
+            "success": False,
+            "error": "Please complete your name, email, and phone number.",
+        }, 400
+
+    if fulfillment_method not in {"pickup", "shipping"}:
+        return {
+            "success": False,
+            "error": "Please select pickup or shipping.",
+        }, 400
+
+    if not isinstance(cart, list) or not cart:
+        return {
+            "success": False,
+            "error": "Your shopping cart is empty.",
+        }, 400
+
     merch_catalog = {
-        "nc-born-bull-city-olive-1": {
-            "name": "NC Born. Bull City Made Tee",
-            "color": "Garment-Dyed Olive",
-            "link": os.getenv("MERCH_LINK_NC_BORN_1", "").strip(),
+        "bull-city-nights": {
+            "name": "Bull City Nights",
+            "colors": {
+                "Black",
+                "White",
+                "Gold",
+                "Sand",
+                "Chocolate Brown",
+            },
+            "sizes": {
+                "S": 3000,
+                "M": 3000,
+                "L": 3500,
+                "XL": 3500,
+                "2XL": 4000,
+            },
         },
-        "jukebox-charcoal-vinyl": {
-            "name": "Jukebox Lounge NC Tee",
-            "color": "Garment-Dyed Charcoal",
-            "link": os.getenv("MERCH_LINK_CHARCOAL", "").strip(),
+        "good-vibes-lounge": {
+            "name": "Good Vibes Lounge",
+            "colors": {
+                "Black",
+                "Sand",
+                "White",
+            },
+            "sizes": {
+                "S": 3000,
+                "M": 3000,
+                "L": 3500,
+                "XL": 3500,
+                "2XL": 4000,
+            },
         },
-        "jukebox-olive-good-vibes": {
-            "name": "The Jukebox Lounge NC Tee",
-            "color": "Garment-Dyed Olive",
-            "link": os.getenv("MERCH_LINK_GOOD_VIBES", "").strip(),
+        "bull-city-legacy": {
+            "name": "Bull City Legacy",
+            "colors": {
+                "Gold",
+                "Sand",
+                "White",
+            },
+            "sizes": {
+                "S": 3000,
+                "M": 3000,
+                "L": 3500,
+                "XL": 3500,
+                "2XL": 4000,
+            },
         },
-        "nc-born-bull-city-olive-2": {
-            "name": "NC Born. Bull City Made Tee",
-            "color": "Garment-Dyed Olive",
-            "link": os.getenv("MERCH_LINK_NC_BORN_2", "").strip(),
+
+        "never-gets-old": {
+            "name": "Never Gets Old",
+            "colors": {
+                "Graphite Heather",
+                "Military Green",
+                "Black",
+            },
+            "sizes": {
+                "S": 3000,
+                "M": 3000,
+                "L": 3500,
+                "XL": 3500,
+                "2XL": 4000,
+            },
         },
-        "jukebox-black-durham": {
-            "name": "The Jukebox Lounge NC Tee",
-            "color": "Garment-Dyed Black",
-            "link": os.getenv("MERCH_LINK_BLACK_DURHAM", "").strip(),
+
+        "bull-city-made": {
+            "name": "Bull City Made",
+            "colors": {
+                "Sand",
+                "Gold",
+                "White",
+            },
+            "sizes": {
+                "S": 3000,
+                "M": 3000,
+                "L": 3500,
+                "XL": 3500,
+                "2XL": 4000,
+            },
         },
-        "jukebox-olive-never-old": {
-            "name": "Jukebox Lounge NC Tee",
-            "color": "Garment-Dyed Olive",
-            "link": os.getenv("MERCH_LINK_NEVER_OLD", "").strip(),
+
+        "after-dark-jukebox": {
+            "name": "After Dark Jukebox",
+            "colors": {
+                "Heather Dark Grey",
+                "Black",
+                "Maroon",
+            },
+            "sizes": {
+                "S": 3500,
+                "M": 3500,
+                "L": 4000,
+                "XL": 4000,
+                "2XL": 4500,
+            },
         },
+
     }
 
-    item_id = (request.form.get("item_id") or "").strip()
-    size = (request.form.get("size") or "").strip().upper()
-    quantity_raw = (request.form.get("quantity") or "1").strip()
-    customer_name = (request.form.get("customer_name") or "").strip()
-    customer_email = (request.form.get("customer_email") or "").strip().lower()
+    validated_items = []
+    subtotal_cents = 0
 
-    item = merch_catalog.get(item_id)
-    if not item:
-        return redirect("/merch")
+    for raw_item in cart:
+        if not isinstance(raw_item, dict):
+            return {
+                "success": False,
+                "error": "An item in your cart is invalid.",
+            }, 400
+
+        product_id = str(raw_item.get("productId") or "").strip()
+        color = str(raw_item.get("color") or "").strip()
+        size = str(raw_item.get("size") or "").strip().upper()
+
+        try:
+            quantity = int(raw_item.get("quantity") or 1)
+        except (TypeError, ValueError):
+            quantity = 1
+
+        product = merch_catalog.get(product_id)
+
+        if not product:
+            return {
+                "success": False,
+                "error": "A product in your cart is no longer available.",
+            }, 400
+
+        if color not in product["colors"]:
+            return {
+                "success": False,
+                "error": f"{color or 'The selected color'} is unavailable.",
+            }, 400
+
+        if size not in product["sizes"]:
+            return {
+                "success": False,
+                "error": f"{size or 'The selected size'} is unavailable.",
+            }, 400
+
+        if quantity < 1 or quantity > 10:
+            return {
+                "success": False,
+                "error": "Item quantities must be between 1 and 10.",
+            }, 400
+
+        unit_price_cents = product["sizes"][size]
+        subtotal_cents += unit_price_cents * quantity
+
+        validated_items.append({
+            "product_id": product_id,
+            "name": product["name"],
+            "color": color,
+            "size": size,
+            "quantity": quantity,
+            "unit_price_cents": unit_price_cents,
+        })
+
+    shipping_cents = 895 if fulfillment_method == "shipping" else 0
+
+    shipping_address_1 = str(
+        payload.get("shipping_address_1") or ""
+    ).strip()
+    shipping_address_2 = str(
+        payload.get("shipping_address_2") or ""
+    ).strip()
+    shipping_city = str(payload.get("shipping_city") or "").strip()
+    shipping_state = str(
+        payload.get("shipping_state") or ""
+    ).strip().upper()
+    shipping_zip = str(payload.get("shipping_zip") or "").strip()
+
+    if fulfillment_method == "shipping":
+        if not all([
+            shipping_address_1,
+            shipping_city,
+            shipping_state,
+            shipping_zip,
+        ]):
+            return {
+                "success": False,
+                "error": "Please complete the shipping address.",
+            }, 400
+
+    if not SQUARE_ACCESS_TOKEN or not SQUARE_LOCATION_ID:
+        return {
+            "success": False,
+            "error": "Square checkout is not configured.",
+        }, 503
+
+    order_number = (
+        f"JBL-MERCH-{datetime.now().strftime('%Y%m%d')}-"
+        f"{secrets.token_hex(3).upper()}"
+    )
+
+    cart_json = json.dumps(validated_items, separators=(",", ":"))
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
 
     try:
-        quantity = int(quantity_raw)
+        cursor.execute(
+            """
+            INSERT INTO merch_orders (
+                order_number,
+                customer_name,
+                customer_email,
+                customer_phone,
+                fulfillment_method,
+                shipping_address_1,
+                shipping_address_2,
+                shipping_city,
+                shipping_state,
+                shipping_zip,
+                cart_json,
+                subtotal_cents,
+                shipping_cents,
+                tax_cents,
+                total_cents,
+                payment_status,
+                order_status
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'Pending', 'New')
+            """,
+            (
+                order_number,
+                customer_name,
+                customer_email,
+                customer_phone,
+                fulfillment_method,
+                shipping_address_1,
+                shipping_address_2,
+                shipping_city,
+                shipping_state,
+                shipping_zip,
+                cart_json,
+                subtotal_cents,
+                shipping_cents,
+                subtotal_cents + shipping_cents,
+            ),
+        )
+        conn.commit()
     except Exception:
-        quantity = 1
-    if quantity < 1:
-        quantity = 1
-    if quantity > 10:
-        quantity = 10
+        conn.rollback()
+        conn.close()
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": "We could not save your order. Please try again.",
+        }, 500
 
-    details = (
-        f"Product: {item['name']} ({item['color']})\n"
-        f"Size: {size or 'N/A'}\n"
-        f"Quantity: {quantity}\n"
-        f"Source: Merch Checkout"
+    square_line_items = []
+
+    for item in validated_items:
+        square_line_items.append({
+            "name": item["name"],
+            "variation_name": f'{item["color"]} / {item["size"]}',
+            "quantity": str(item["quantity"]),
+            "base_price_money": {
+                "amount": item["unit_price_cents"],
+                "currency": "USD",
+            },
+            "note": (
+                f'Color: {item["color"]}; '
+                f'Size: {item["size"]}; '
+                f'Order: {order_number}'
+            ),
+        })
+
+    square_payload = {
+        "idempotency_key": secrets.token_hex(16),
+        "description": f"Jukebox Lounge merch order {order_number}",
+        "order": {
+            "location_id": SQUARE_LOCATION_ID,
+            "reference_id": order_number,
+            "line_items": square_line_items,
+            "pricing_options": {
+                "auto_apply_taxes": True,
+            },
+        },
+        "checkout_options": {
+            "allow_tipping": False,
+            "redirect_url": (
+                (
+                    request.url_root.rstrip("/")
+                    if SQUARE_ENV == "sandbox"
+                    else BASE_URL
+                )
+                + "/merch/order-complete"
+                + f"?order_number={urllib.parse.quote(order_number)}"
+            ),
+            "ask_for_shipping_address": (
+                fulfillment_method == "shipping"
+            ),
+        },
+        "pre_populated_data": {
+            "buyer_email": customer_email,
+            "buyer_phone_number": square_customer_phone,
+        },
+        "payment_note": f"Merch Order {order_number}",
+    }
+
+    if fulfillment_method == "shipping":
+        square_payload["checkout_options"]["shipping_fee"] = {
+            "name": "Flat-Rate Shipping",
+            "charge": {
+                "amount": shipping_cents,
+                "currency": "USD",
+            },
+        }
+
+        square_payload["pre_populated_data"]["buyer_address"] = {
+            "address_line_1": shipping_address_1,
+            "address_line_2": shipping_address_2,
+            "locality": shipping_city,
+            "administrative_district_level_1": shipping_state,
+            "postal_code": shipping_zip,
+            "country": "US",
+        }
+
+    endpoint = (
+        f"{square_base_url()}/v2/online-checkout/payment-links"
     )
-    create_lead_record("Merch Order", customer_name or "Customer", customer_email, details, "New")
 
-    # Fallback to a shared merch link if product-specific link is not set yet.
-    checkout_link = item.get("link") or os.getenv("MERCH_LINK_DEFAULT", "").strip()
-    if checkout_link and checkout_link.startswith("http"):
-        return redirect(checkout_link)
+    try:
+        square_response = requests.post(
+            endpoint,
+            headers={
+                "Authorization": f"Bearer {SQUARE_ACCESS_TOKEN}",
+                "Square-Version": "2026-07-15",
+                "Content-Type": "application/json",
+            },
+            json=square_payload,
+            timeout=25,
+        )
+    except requests.RequestException:
+        cursor.execute(
+            """
+            UPDATE merch_orders
+            SET payment_status = 'Checkout Error'
+            WHERE order_number = ?
+            """,
+            (order_number,),
+        )
+        conn.commit()
+        conn.close()
+        traceback.print_exc()
 
-    return render_thank_you_safe(
-        "ORDER STARTED",
-        "Your order details were saved. Add your Square merch link env vars to enable direct checkout.",
+        return {
+            "success": False,
+            "error": "Square could not be reached. Please try again.",
+        }, 502
+
+    try:
+        square_data = square_response.json()
+    except ValueError:
+        square_data = {}
+
+    if not square_response.ok:
+        cursor.execute(
+            """
+            UPDATE merch_orders
+            SET payment_status = 'Checkout Error'
+            WHERE order_number = ?
+            """,
+            (order_number,),
+        )
+        conn.commit()
+        conn.close()
+
+        print(
+            "[merch-square-error]",
+            square_response.status_code,
+            square_data,
+        )
+
+        errors = square_data.get("errors") or []
+        error_message = (
+            errors[0].get("detail")
+            if errors and isinstance(errors[0], dict)
+            else "Square could not create the payment page."
+        )
+
+        return {
+            "success": False,
+            "error": error_message,
+        }, 502
+
+    payment_link = square_data.get("payment_link") or {}
+    checkout_url = (
+        payment_link.get("long_url")
+        or payment_link.get("url")
+        or ""
     )
+    square_order_id = str(payment_link.get("order_id") or "")
+    square_payment_link_id = str(payment_link.get("id") or "")
+
+    related_orders = (
+        (square_data.get("related_resources") or {}).get("orders")
+        or []
+    )
+    square_order = related_orders[0] if related_orders else {}
+
+    tax_cents = int(
+        ((square_order.get("total_tax_money") or {}).get("amount"))
+        or 0
+    )
+    total_cents = int(
+        ((square_order.get("total_money") or {}).get("amount"))
+        or subtotal_cents + shipping_cents + tax_cents
+    )
+
+    cursor.execute(
+        """
+        UPDATE merch_orders
+        SET
+            square_order_id = ?,
+            square_payment_link_id = ?,
+            square_payment_url = ?,
+            tax_cents = ?,
+            total_cents = ?,
+            payment_status = 'Awaiting Payment'
+        WHERE order_number = ?
+        """,
+        (
+            square_order_id,
+            square_payment_link_id,
+            checkout_url,
+            tax_cents,
+            total_cents,
+            order_number,
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    if not checkout_url:
+        return {
+            "success": False,
+            "error": "Square did not return a checkout URL.",
+        }, 502
+
+    return {
+        "success": True,
+        "checkout_url": checkout_url,
+        "order_number": order_number,
+    }
+
 
 # -------------------------
 # JOIN MEMBERSHIP
@@ -9701,6 +11443,582 @@ def admin_dashboard_events():
         event_ticket_types=event_ticket_types,
     )
 
+
+
+
+@app.route("/dashboard/merch-orders")
+@requires_auth
+def dashboard_merch_orders():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM merch_orders
+        ORDER BY datetime(COALESCE(created_at, '1900-01-01')) DESC, id DESC
+        """
+    )
+
+    orders = []
+
+    for row in cursor.fetchall():
+        order = dict(row)
+
+        try:
+            order["cart_items"] = json.loads(order.get("cart_json") or "[]")
+        except (TypeError, ValueError):
+            order["cart_items"] = []
+
+        order["item_quantity"] = sum(
+            int(item.get("quantity") or 0)
+            for item in order["cart_items"]
+        )
+
+        orders.append(order)
+
+    paid_orders = [
+        order
+        for order in orders
+        if (order.get("payment_status") or "").strip().lower() == "paid"
+    ]
+
+    complimentary_orders = [
+        order
+        for order in orders
+        if (order.get("payment_status") or "").strip().lower()
+        == "complimentary"
+    ]
+
+    production_statuses = {"new", "processing", "ready for pickup"}
+
+    payment_breakdown = {
+        "Square": {"orders": 0, "shirts": 0, "revenue_cents": 0},
+        "Cash": {"orders": 0, "shirts": 0, "revenue_cents": 0},
+        "Cash App": {"orders": 0, "shirts": 0, "revenue_cents": 0},
+        "Zelle": {"orders": 0, "shirts": 0, "revenue_cents": 0},
+        "Apple Pay": {"orders": 0, "shirts": 0, "revenue_cents": 0},
+        "Other": {"orders": 0, "shirts": 0, "revenue_cents": 0},
+        "Complimentary": {
+            "orders": 0,
+            "shirts": 0,
+            "revenue_cents": 0,
+        },
+    }
+
+    for order in orders:
+        payment_status = (
+            order.get("payment_status") or ""
+        ).strip().lower()
+
+        manual_method = (
+            order.get("manual_payment_method") or ""
+        ).strip()
+
+        if payment_status == "complimentary":
+            method = "Complimentary"
+        elif manual_method:
+            method = manual_method
+        elif payment_status == "paid":
+            method = "Square"
+        else:
+            continue
+
+        if method not in payment_breakdown:
+            method = "Other"
+
+        payment_breakdown[method]["orders"] += 1
+        payment_breakdown[method]["shirts"] += int(
+            order.get("item_quantity") or 0
+        )
+
+        if payment_status == "paid":
+            payment_breakdown[method]["revenue_cents"] += int(
+                order.get("total_cents") or 0
+            )
+
+    stats = {
+        "total_orders": len(orders),
+        "paid_orders": len(paid_orders),
+        "processing_orders": sum(
+            1
+            for order in orders
+            if (order.get("order_status") or "").strip().lower()
+            in ("new", "processing")
+        ),
+        "pickup_orders": sum(
+            1
+            for order in orders
+            if (order.get("fulfillment_method") or "").strip().lower()
+            == "pickup"
+        ),
+        "shipping_orders": sum(
+            1
+            for order in orders
+            if (order.get("fulfillment_method") or "").strip().lower()
+            == "shipping"
+        ),
+        "revenue_cents": sum(
+            int(order.get("total_cents") or 0)
+            for order in paid_orders
+        ),
+        "total_shirts": sum(
+            int(order.get("item_quantity") or 0)
+            for order in orders
+        ),
+        "paid_shirts": sum(
+            int(order.get("item_quantity") or 0)
+            for order in paid_orders
+        ),
+        "complimentary_shirts": sum(
+            int(order.get("item_quantity") or 0)
+            for order in complimentary_orders
+        ),
+        "production_shirts": sum(
+            int(order.get("item_quantity") or 0)
+            for order in orders
+            if (order.get("order_status") or "").strip().lower()
+            in production_statuses
+        ),
+        "completed_shirts": sum(
+            int(order.get("item_quantity") or 0)
+            for order in orders
+            if (order.get("order_status") or "").strip().lower()
+            == "completed"
+        ),
+    }
+
+    conn.close()
+
+    return render_template(
+        "merch_orders_dashboard.html",
+        orders=orders,
+        stats=stats,
+        merch_catalog=get_merch_catalog(),
+        payment_breakdown=payment_breakdown,
+        message=(request.args.get("msg") or "").strip(),
+    )
+
+
+
+@app.route("/dashboard/merch-orders/create", methods=["POST"])
+@requires_auth
+def create_manual_merch_order():
+    customer_name = str(
+        request.form.get("customer_name") or ""
+    ).strip()
+
+    customer_email = str(
+        request.form.get("customer_email") or ""
+    ).strip().lower()
+
+    customer_phone = str(
+        request.form.get("customer_phone") or ""
+    ).strip()
+
+    product_id = str(
+        request.form.get("product_id") or ""
+    ).strip()
+
+    color = str(
+        request.form.get("color") or ""
+    ).strip()
+
+    size = str(
+        request.form.get("size") or ""
+    ).strip()
+
+    fulfillment_method = str(
+        request.form.get("fulfillment_method") or "pickup"
+    ).strip().lower()
+
+    payment_method = str(
+        request.form.get("payment_method") or ""
+    ).strip()
+
+    payment_notes = str(
+        request.form.get("payment_notes") or ""
+    ).strip()
+
+    manual_notes = str(
+        request.form.get("complimentary_reason") or ""
+    ).strip()
+
+    try:
+        quantity = int(request.form.get("quantity") or 1)
+    except (TypeError, ValueError):
+        quantity = 1
+
+    if not customer_name:
+        return redirect(
+            "/dashboard/merch-orders?msg=Customer+name+is+required"
+        )
+
+    if fulfillment_method not in ("pickup", "shipping"):
+        return redirect(
+            "/dashboard/merch-orders?msg=Invalid+fulfillment+method"
+        )
+
+    allowed_payment_methods = {
+        "Cash",
+        "Cash App",
+        "Zelle",
+        "Apple Pay",
+        "Other",
+        "Complimentary",
+    }
+
+    if payment_method not in allowed_payment_methods:
+        return redirect(
+            "/dashboard/merch-orders?msg=Select+a+payment+method"
+        )
+
+    if quantity < 1 or quantity > 25:
+        return redirect(
+            "/dashboard/merch-orders?msg=Quantity+must+be+between+1+and+25"
+        )
+
+    catalog = {
+        product["id"]: product
+        for product in get_merch_catalog()
+    }
+
+    product = catalog.get(product_id)
+
+    if not product:
+        return redirect(
+            "/dashboard/merch-orders?msg=Invalid+product"
+        )
+
+    valid_colors = {
+        item["name"]
+        for item in product.get("colors", [])
+    }
+
+    valid_sizes = {
+        item["value"]: item
+        for item in product.get("sizes", [])
+    }
+
+    if color not in valid_colors:
+        return redirect(
+            "/dashboard/merch-orders?msg=Invalid+product+color"
+        )
+
+    if size not in valid_sizes:
+        return redirect(
+            "/dashboard/merch-orders?msg=Invalid+product+size"
+        )
+
+    selected_size = valid_sizes[size]
+
+    try:
+        retail_unit_cents = int(
+            round(float(selected_size.get("price") or 0) * 100)
+        )
+    except (TypeError, ValueError):
+        retail_unit_cents = 0
+
+    retail_total_cents = retail_unit_cents * quantity
+
+    if payment_method == "Complimentary":
+        amount_collected_cents = 0
+        payment_status = "Complimentary"
+        order_prefix = "JBL-COMP"
+    else:
+        raw_amount = str(
+            request.form.get("amount_collected") or ""
+        ).strip()
+
+        try:
+            amount_collected_cents = int(
+                round(float(raw_amount) * 100)
+            )
+        except (TypeError, ValueError):
+            return redirect(
+                "/dashboard/merch-orders"
+                "?msg=Enter+a+valid+amount+collected"
+            )
+
+        if amount_collected_cents < 0:
+            return redirect(
+                "/dashboard/merch-orders"
+                "?msg=Amount+collected+cannot+be+negative"
+            )
+
+        payment_status = "Paid"
+        order_prefix = "JBL-MANUAL"
+
+    shipping_address_1 = str(
+        request.form.get("shipping_address_1") or ""
+    ).strip()
+
+    shipping_address_2 = str(
+        request.form.get("shipping_address_2") or ""
+    ).strip()
+
+    shipping_city = str(
+        request.form.get("shipping_city") or ""
+    ).strip()
+
+    shipping_state = str(
+        request.form.get("shipping_state") or ""
+    ).strip().upper()
+
+    shipping_zip = str(
+        request.form.get("shipping_zip") or ""
+    ).strip()
+
+    if fulfillment_method == "shipping":
+        if not all([
+            shipping_address_1,
+            shipping_city,
+            shipping_state,
+            shipping_zip,
+        ]):
+            return redirect(
+                "/dashboard/merch-orders"
+                "?msg=Complete+the+shipping+address"
+            )
+
+    order_number = (
+        f"{order_prefix}-{datetime.now().strftime('%Y%m%d')}-"
+        f"{secrets.token_hex(3).upper()}"
+    )
+
+    cart_items = [
+        {
+            "product_id": product_id,
+            "name": product["name"],
+            "color": color,
+            "size": size,
+            "quantity": quantity,
+            "unit_price_cents": retail_unit_cents,
+            "retail_total_cents": retail_total_cents,
+            "line_total_cents": amount_collected_cents,
+        }
+    ]
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            """
+            INSERT INTO merch_orders (
+                order_number,
+                customer_name,
+                customer_email,
+                customer_phone,
+                fulfillment_method,
+                shipping_address_1,
+                shipping_address_2,
+                shipping_city,
+                shipping_state,
+                shipping_zip,
+                cart_json,
+                subtotal_cents,
+                shipping_cents,
+                tax_cents,
+                total_cents,
+                payment_status,
+                order_status,
+                complimentary_reason,
+                manual_payment_method,
+                manual_payment_notes,
+                paid_at
+            )
+            VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, 0, 0, ?,
+                ?,
+                'Processing',
+                ?,
+                ?,
+                ?,
+                CURRENT_TIMESTAMP
+            )
+            """,
+            (
+                order_number,
+                customer_name,
+                customer_email,
+                customer_phone,
+                fulfillment_method,
+                shipping_address_1,
+                shipping_address_2,
+                shipping_city,
+                shipping_state,
+                shipping_zip,
+                json.dumps(cart_items, separators=(",", ":")),
+                amount_collected_cents,
+                amount_collected_cents,
+                payment_status,
+                manual_notes,
+                payment_method,
+                payment_notes,
+            ),
+        )
+
+        conn.commit()
+
+    except Exception:
+        conn.rollback()
+        traceback.print_exc()
+        conn.close()
+
+        return redirect(
+            "/dashboard/merch-orders"
+            "?msg=Manual+order+could+not+be+created"
+        )
+
+    conn.close()
+
+    return redirect(
+        "/dashboard/merch-orders"
+        "?msg=Manual+order+created"
+    )
+
+
+@app.route("/dashboard/merch-orders/<int:order_id>/status", methods=["POST"])
+@requires_auth
+def update_merch_order_status(order_id):
+    allowed_statuses = {
+        "New",
+        "Processing",
+        "Ready for Pickup",
+        "Shipped",
+        "Completed",
+        "Cancelled",
+    }
+
+    new_status = str(
+        request.form.get("order_status") or ""
+    ).strip()
+
+    shipping_carrier = str(
+        request.form.get("shipping_carrier") or ""
+    ).strip()
+
+    tracking_number = str(
+        request.form.get("tracking_number") or ""
+    ).strip()
+
+    tracking_url = str(
+        request.form.get("tracking_url") or ""
+    ).strip()
+
+    if new_status not in allowed_statuses:
+        return redirect(
+            "/dashboard/merch-orders?msg=Invalid+order+status"
+        )
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM merch_orders
+        WHERE id = ?
+        LIMIT 1
+        """,
+        (order_id,),
+    )
+
+    row = cursor.fetchone()
+
+    if not row:
+        conn.close()
+        return redirect(
+            "/dashboard/merch-orders?msg=Order+not+found"
+        )
+
+    order = dict(row)
+
+    cursor.execute(
+        """
+        UPDATE merch_orders
+        SET
+            order_status = ?,
+            shipping_carrier = ?,
+            tracking_number = ?,
+            tracking_url = ?
+        WHERE id = ?
+        """,
+        (
+            new_status,
+            shipping_carrier,
+            tracking_number,
+            tracking_url,
+            order_id,
+        ),
+    )
+
+    conn.commit()
+
+    order["order_status"] = new_status
+    order["shipping_carrier"] = shipping_carrier
+    order["tracking_number"] = tracking_number
+    order["tracking_url"] = tracking_url
+
+    try:
+        items = json.loads(order.get("cart_json") or "[]")
+    except (TypeError, ValueError):
+        items = []
+
+    email_column_map = {
+        "Ready for Pickup": "ready_email_sent_at",
+        "Shipped": "shipped_email_sent_at",
+        "Completed": "completed_email_sent_at",
+    }
+
+    email_column = email_column_map.get(new_status)
+    email_sent = False
+    email_attempted = False
+
+    if email_column and not order.get(email_column):
+        recipient = str(
+            order.get("customer_email") or ""
+        ).strip()
+
+        if recipient:
+            email_attempted = True
+            email_sent = send_merch_status_update_email(
+                order,
+                items,
+                new_status,
+            )
+
+            if email_sent:
+                cursor.execute(
+                    f"""
+                    UPDATE merch_orders
+                    SET {email_column} = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                      AND {email_column} IS NULL
+                    """,
+                    (order_id,),
+                )
+                conn.commit()
+
+    conn.close()
+
+    if email_sent:
+        message = "Order status updated and customer email sent"
+    elif email_attempted:
+        message = "Order status updated but customer email failed"
+    elif email_column and not order.get("customer_email"):
+        message = "Order status updated; no customer email was provided"
+    else:
+        message = "Order status updated"
+
+    return redirect(
+        "/dashboard/merch-orders?msg="
+        + message.replace(" ", "+")
+    )
 
 
 @app.route("/dashboard/messages")

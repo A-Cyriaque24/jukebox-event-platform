@@ -1,142 +1,414 @@
 {% extends "base.html" %}
 
-{% block title %}Merch | The Jukebox Lounge NC{% endblock %}
+{% block title %}Shop Merch | The Jukebox Lounge NC{% endblock %}
 
 {% block content %}
-
 <style>
-  .merch-page-section {
-    padding: 60px 24px !important;
+  :root {
+    --merch-gold: #d9b657;
+    --merch-gold-light: #f0d98f;
+    --merch-border: rgba(217, 182, 87, 0.28);
+    --merch-muted: rgba(255, 255, 255, 0.68);
   }
 
-  .merch-page-section .merch-grid {
-    max-width: 1080px !important;
-    margin: 0 auto !important;
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 22px !important;
-    width: 100% !important;
+  .merch-collection-hero {
+    padding: 110px 24px 70px;
+    text-align: center;
+    background:
+      radial-gradient(circle at top, rgba(217, 182, 87, 0.14), transparent 45%),
+      linear-gradient(180deg, #111 0%, #070707 100%);
+    border-bottom: 1px solid var(--merch-border);
   }
 
-  .merch-page-section .merch-card {
-    width: 100% !important;
-    max-width: 100% !important;
-    background: rgba(255,255,255,0.045) !important;
-    border: 1px solid rgba(218,180,84,0.3) !important;
-    border-radius: 20px !important;
-    overflow: hidden !important;
-    display: flex !important;
-    flex-direction: column !important;
+  .merch-collection-hero .eyebrow {
+    margin: 0 0 12px;
+    color: var(--merch-gold);
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
   }
 
-  .merch-page-section .merch-image-wrap {
-    width: 100% !important;
-    height: 210px !important;
-    min-height: 210px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    background: #111 !important;
+  .merch-collection-hero h1 {
+    max-width: 850px;
+    margin: 0 auto 18px;
+    font-size: clamp(2.5rem, 6vw, 4.8rem);
+    line-height: 0.98;
   }
 
-  .merch-page-section .merch-image-wrap img {
-    width: 100% !important;
-    height: 210px !important;
-    object-fit: contain !important;
-    padding: 10px !important;
-    display: block !important;
+  .merch-collection-hero p {
+    max-width: 700px;
+    margin: 0 auto;
+    color: var(--merch-muted);
+    line-height: 1.7;
   }
 
-  .merch-page-section .merch-card-body {
-    padding: 18px !important;
-    text-align: left !important;
+  .merch-collection-section {
+    padding: 70px 24px 90px;
+    background: #070707;
   }
 
-  .merch-page-section .merch-card-body h3 {
-    font-size: 1.05rem !important;
-    line-height: 1.25 !important;
-    margin: 8px 0 !important;
+  .merch-collection-shell {
+    width: min(1180px, 100%);
+    margin: 0 auto;
   }
 
-  .merch-page-section .merch-price {
-    font-size: 1rem !important;
-    margin-bottom: 10px !important;
+  .merch-collection-heading {
+    margin-bottom: 30px;
+    text-align: center;
   }
 
-  .merch-page-section .merch-details {
-    list-style: none !important;
-    padding: 0 !important;
-    margin: 0 0 16px !important;
-    font-size: 0.88rem !important;
-    display: grid !important;
-    gap: 5px !important;
+  .merch-collection-heading .eyebrow {
+    margin: 0 0 8px;
+    color: var(--merch-gold);
+    font-size: 0.75rem;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
   }
 
-  .merch-page-section .merch-card form {
-    margin-top: auto !important;
+  .merch-collection-heading h2 {
+    margin: 0 0 10px;
+    font-size: clamp(2rem, 4vw, 3.2rem);
   }
 
-  .merch-page-section .merch-card button {
-    width: 100% !important;
-    max-width: 100% !important;
-    display: flex !important;
-    justify-content: center !important;
-    padding: 11px 14px !important;
-    font-size: 0.9rem !important;
+  .merch-collection-heading p {
+    margin: 0;
+    color: var(--merch-muted);
+  }
+
+  .merch-collection-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+  }
+
+  .merch-collection-card {
+    overflow: hidden;
+    border: 1px solid var(--merch-border);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.04);
+    display: flex;
+    flex-direction: column;
+    transition:
+      transform 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  .merch-collection-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(217, 182, 87, 0.55);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+  }
+
+  .merch-collection-image {
+    display: block;
+    aspect-ratio: 1 / 0.86;
+    overflow: hidden;
+    background: #eee9df;
+  }
+
+  .merch-collection-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    transition: transform 0.25s ease;
+  }
+
+  .merch-collection-card:hover .merch-collection-image img {
+    transform: scale(1.025);
+  }
+
+  .merch-collection-body {
+    flex: 1;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .merch-made-label {
+    margin: 0 0 8px;
+    color: var(--merch-gold);
+    font-size: 0.7rem;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .merch-color-options {
+    margin: 14px 0 18px;
+  }
+
+  .merch-color-options-label {
+    display: block;
+    margin-bottom: 9px;
+    color: var(--merch-muted);
+    font-size: 0.92rem;
+    font-weight: 700;
+  }
+
+  .merch-color-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+  }
+
+  .merch-color-swatch {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    border: 2px solid rgba(255, 255, 255, 0.32);
+    border-radius: 7px;
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.5),
+      inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+    cursor: default;
+  }
+
+  .merch-color-swatch:hover {
+    transform: translateY(-2px);
+    border-color: var(--merch-gold);
+  }
+
+  .swatch-black {
+    background: #111111;
+  }
+
+  .swatch-white {
+    background: #f5f3ed;
+  }
+
+  .swatch-gold {
+    background: #d8a928;
+  }
+
+  .swatch-sand {
+    background: #d8c6a5;
+  }
+
+  .swatch-chocolate-brown {
+    background: #4b2d20;
+  }
+
+  .swatch-graphite-heather {
+    background: #555555;
+  }
+
+  .swatch-military-green {
+    background: #596044;
+  }
+
+  .swatch-heather-dark-grey {
+    background: #3f4142;
+  }
+
+  .swatch-maroon {
+    background: #6f202c;
+  }
+
+  .merch-collection-body h3 {
+    margin: 0 0 9px;
+    font-size: 1.25rem;
+    line-height: 1.2;
+  }
+
+  .merch-collection-price {
+    margin-bottom: 13px;
+    color: var(--merch-gold-light);
+    font-size: 1.05rem;
+    font-weight: 900;
+  }
+
+  .merch-collection-description {
+    margin: 0 0 16px;
+    color: var(--merch-muted);
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .merch-color-list {
+    margin: 0 0 18px;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.86rem;
+    line-height: 1.5;
+  }
+
+  .merch-view-product {
+    margin-top: auto;
+    min-height: 47px;
+    padding: 11px 16px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f0d98f, #c79c35);
+    color: #090909;
+    text-decoration: none;
+    font-weight: 900;
+  }
+
+  .merch-cart-shortcut {
+    width: min(1180px, calc(100% - 48px));
+    margin: 24px auto 0;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .merch-cart-shortcut a {
+    min-height: 44px;
+    padding: 10px 17px;
+    border: 1px solid var(--merch-border);
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 800;
+  }
+
+  .merch-cart-badge {
+    min-width: 24px;
+    height: 24px;
+    padding: 0 7px;
+    border-radius: 999px;
+    display: inline-grid;
+    place-items: center;
+    background: var(--merch-gold);
+    color: #090909;
+    font-size: 0.76rem;
   }
 
   @media (max-width: 950px) {
-    .merch-page-section .merch-grid {
-      grid-template-columns: repeat(2, 1fr) !important;
+    .merch-collection-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 
   @media (max-width: 640px) {
-    .merch-page-section .merch-grid {
-      grid-template-columns: 1fr !important;
+    .merch-collection-hero {
+      padding: 92px 18px 56px;
+    }
+
+    .merch-collection-section {
+      padding: 50px 16px 70px;
+    }
+
+    .merch-collection-grid {
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+
+    .merch-cart-shortcut {
+      width: calc(100% - 32px);
     }
   }
 </style>
 
-<section class="page-hero merch-hero">
-  <div class="page-hero-content">
-    <p class="eyebrow">Jukebox Merch</p>
-    <h1>Rep The Jukebox Lounge NC</h1>
-    <p>
-      Shop limited Jukebox Lounge NC merch, event tees, and Bull City-inspired pieces.
-    </p>
+<section class="merch-collection-hero">
+  <p class="eyebrow">Jukebox Merch</p>
+  <h1>Wear the Sound.<br>Rep the Bull City.</h1>
+  <p>
+    Explore made-to-order apparel inspired by Durham, good music,
+    and The Jukebox Lounge NC community.
+  </p>
+</section>
+
+<div class="merch-cart-shortcut">
+  <a href="/merch/checkout">
+    View Cart
+    <span class="merch-cart-badge" id="merchCollectionCartCount">0</span>
+  </a>
+</div>
+
+<section class="merch-collection-section">
+  <div class="merch-collection-shell">
+    <header class="merch-collection-heading">
+      <p class="eyebrow">Merch Collection</p>
+      <h2>Available Designs</h2>
+      <p>Select a shirt to view colors, sizes, pricing, and order options.</p>
+    </header>
+
+    <div class="merch-collection-grid">
+      {% for item in merch_items %}
+      <article class="merch-collection-card">
+        <a
+          class="merch-collection-image"
+          href="/merch/{{ item.id }}"
+          aria-label="View {{ item.name }}"
+        >
+          <img
+            src="{{ url_for('static', filename=item.colors[0].image) }}"
+            alt="{{ item.name }} in {{ item.colors[0].name }}"
+          >
+        </a>
+
+        <div class="merch-collection-body">
+          <p class="merch-made-label">Made to Order</p>
+
+          <h3>{{ item.name }}</h3>
+
+          <div class="merch-collection-price">
+            Starting at ${{ "%.2f"|format(item.starting_price) }}
+          </div>
+
+          <p class="merch-collection-description">
+            {{ item.description }}
+          </p>
+
+          <div class="merch-color-options">
+            <span class="merch-color-options-label">
+              Available Colors
+            </span>
+
+            <div
+              class="merch-color-swatches"
+              aria-label="Available colors for {{ item.name }}"
+            >
+              {% for color in item.colors %}
+              <span
+                class="merch-color-swatch swatch-{{ color.slug }}"
+                title="{{ color.name }}"
+                aria-label="{{ color.name }}"
+                role="img"
+              ></span>
+              {% endfor %}
+            </div>
+          </div>
+
+          <a class="merch-view-product" href="/merch/{{ item.id }}">
+            View Product
+          </a>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
   </div>
 </section>
 
-<section class="merch-page-section">
-  <div class="section-heading">
-    <p class="eyebrow">Merch Collection</p>
-    <h2>Available Designs</h2>
-    <p>Choose your favorite design and complete your order through our secure checkout.</p>
-  </div>
+<script>
+  (() => {
+    const badge = document.getElementById("merchCollectionCartCount");
 
-  <div class="merch-grid">
-    {% for item in merch_items %}
-    <article class="merch-card">
-      <div class="merch-image-wrap">
-        <img src="{{ url_for('static', filename=item.image) }}" alt="{{ item.name }}">
-      </div>
+    try {
+      const cart = JSON.parse(
+        localStorage.getItem("jukeboxMerchCart") || "[]"
+      );
 
-      <div class="merch-card-body">
-        <p class="eyebrow">{{ item.color }}</p>
-        <h3>{{ item.name }}</h3>
-        <strong class="merch-price">{{ item.price }}</strong>
+      const count = Array.isArray(cart)
+        ? cart.reduce(
+            (total, item) => total + Number(item.quantity || 0),
+            0
+          )
+        : 0;
 
-        <ul>
-          {% for detail in item.details %}
-          <li>{{ detail }}</li>
-          {% endfor %}
-        </ul>
-
-        <div class="merch-coming-soon">Coming Soon</div>
-      </div>
-    </article>
-    {% endfor %}
-  </div>
-</section>
+      badge.textContent = count;
+    } catch (error) {
+      badge.textContent = "0";
+    }
+  })();
+</script>
 {% endblock %}

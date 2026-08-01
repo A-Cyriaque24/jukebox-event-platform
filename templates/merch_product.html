@@ -1,0 +1,809 @@
+{% extends "base.html" %}
+
+{% block title %}{{ product.name }} | The Jukebox Lounge NC{% endblock %}
+
+{% block content %}
+<style>
+  :root {
+    --merch-gold: #d9b657;
+    --merch-gold-light: #f0d98f;
+    --merch-border: rgba(217, 182, 87, 0.28);
+    --merch-muted: rgba(255, 255, 255, 0.68);
+  }
+
+  body.merch-cart-open {
+    overflow: hidden;
+  }
+
+  .merch-product-page {
+    padding: 105px 24px 90px;
+    background: #070707;
+  }
+
+  .merch-product-shell {
+    width: min(1200px, 100%);
+    margin: 0 auto;
+  }
+
+  .merch-product-topbar {
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .merch-back-link {
+    color: rgba(255, 255, 255, 0.75);
+    text-decoration: none;
+    font-weight: 800;
+  }
+
+  .merch-cart-button {
+    min-height: 44px;
+    padding: 10px 17px;
+    border: 1px solid var(--merch-border);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #fff;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .merch-cart-count {
+    margin-left: 8px;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 7px;
+    border-radius: 999px;
+    display: inline-grid;
+    place-items: center;
+    background: var(--merch-gold);
+    color: #090909;
+    font-size: 0.76rem;
+  }
+
+  .merch-product-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
+    gap: clamp(34px, 6vw, 72px);
+    align-items: start;
+  }
+
+  .merch-gallery {
+    position: sticky;
+    top: 105px;
+  }
+
+  .merch-main-image {
+    overflow: hidden;
+    aspect-ratio: 1 / 1;
+    border: 1px solid var(--merch-border);
+    border-radius: 24px;
+    background: #eee9df;
+  }
+
+  .merch-main-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    transition: opacity 0.2s ease;
+  }
+
+  .merch-main-image img.is-changing {
+    opacity: 0.35;
+  }
+
+  .merch-thumbnail-row {
+    margin-top: 12px;
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+  }
+
+  .merch-thumbnail {
+    width: 72px;
+    min-width: 72px;
+    aspect-ratio: 1 / 1;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    background: #eee9df;
+    cursor: pointer;
+  }
+
+  .merch-thumbnail.active {
+    border: 2px solid var(--merch-gold);
+  }
+
+  .merch-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .merch-product-info {
+    padding-top: 10px;
+  }
+
+  .merch-product-label {
+    margin: 0 0 10px;
+    color: var(--merch-gold);
+    font-size: 0.74rem;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .merch-product-info h1 {
+    margin: 0;
+    font-size: clamp(2.4rem, 6vw, 4.6rem);
+    line-height: 0.98;
+  }
+
+  .merch-product-price {
+    display: block;
+    margin: 18px 0;
+    color: var(--merch-gold-light);
+    font-size: 1.5rem;
+    font-weight: 900;
+  }
+
+  .merch-product-description {
+    margin: 0 0 25px;
+    color: var(--merch-muted);
+    line-height: 1.75;
+  }
+
+  .merch-option-group {
+    margin-top: 24px;
+  }
+
+  .merch-option-heading {
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    font-weight: 800;
+  }
+
+  .merch-option-heading span:last-child {
+    color: var(--merch-gold-light);
+  }
+
+  .merch-color-options,
+  .merch-size-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+  }
+
+  .merch-color-option,
+  .merch-size-option {
+    min-height: 42px;
+    padding: 9px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.035);
+    color: #fff;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .merch-color-option.active,
+  .merch-size-option.active {
+    border-color: var(--merch-gold);
+    background: rgba(217, 182, 87, 0.12);
+    color: var(--merch-gold-light);
+  }
+
+  .merch-quantity-control {
+    display: inline-grid;
+    grid-template-columns: 42px 54px 42px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 12px;
+  }
+
+  .merch-quantity-control button,
+  .merch-quantity-control input {
+    min-height: 44px;
+    border: 0;
+    background: rgba(255, 255, 255, 0.035);
+    color: #fff;
+    text-align: center;
+    font: inherit;
+    font-weight: 800;
+  }
+
+  .merch-quantity-control input {
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .merch-add-button {
+    width: 100%;
+    min-height: 54px;
+    margin-top: 26px;
+    border: 0;
+    border-radius: 13px;
+    background: linear-gradient(135deg, #f0d98f, #c79c35);
+    color: #090909;
+    font: inherit;
+    font-weight: 900;
+    cursor: pointer;
+  }
+
+  .merch-order-note {
+    margin: 16px 0 0;
+    padding: 15px;
+    border: 1px solid var(--merch-border);
+    border-radius: 13px;
+    background: rgba(217, 182, 87, 0.06);
+    color: rgba(255, 255, 255, 0.73);
+    line-height: 1.55;
+    font-size: 0.88rem;
+  }
+
+  .merch-detail-list {
+    list-style: none;
+    margin: 24px 0 0;
+    padding: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .merch-detail-list li {
+    position: relative;
+    padding: 13px 0 13px 23px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--merch-muted);
+  }
+
+  .merch-detail-list li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: var(--merch-gold);
+    font-weight: 900;
+  }
+
+  .merch-cart-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9997;
+    background: rgba(0, 0, 0, 0.68);
+    opacity: 0;
+    visibility: hidden;
+    transition: 0.2s ease;
+  }
+
+  .merch-cart-overlay.open {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .merch-cart-drawer {
+    position: fixed;
+    z-index: 9998;
+    top: 0;
+    right: 0;
+    width: min(440px, 100%);
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--merch-border);
+    background: #101010;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+  }
+
+  .merch-cart-drawer.open {
+    transform: translateX(0);
+  }
+
+  .merch-cart-header {
+    padding: 21px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .merch-cart-header h2 {
+    margin: 0;
+  }
+
+  .merch-cart-close {
+    border: 0;
+    background: transparent;
+    color: #fff;
+    font-size: 2rem;
+    cursor: pointer;
+  }
+
+  .merch-cart-items {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  .merch-empty-cart {
+    min-height: 240px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    color: var(--merch-muted);
+  }
+
+  .merch-cart-item {
+    display: grid;
+    grid-template-columns: 82px minmax(0, 1fr);
+    gap: 13px;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .merch-cart-item img {
+    width: 82px;
+    height: 82px;
+    object-fit: cover;
+    border-radius: 11px;
+    background: #eee9df;
+  }
+
+  .merch-cart-item h3 {
+    margin: 0 0 5px;
+    font-size: 1rem;
+  }
+
+  .merch-cart-item p {
+    margin: 0;
+    color: var(--merch-muted);
+    font-size: 0.85rem;
+    line-height: 1.45;
+  }
+
+  .merch-cart-item-bottom {
+    margin-top: 8px;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .merch-cart-item-price {
+    color: var(--merch-gold-light);
+    font-weight: 900;
+  }
+
+  .merch-cart-remove {
+    border: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.62);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .merch-cart-footer {
+    padding: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .merch-cart-subtotal {
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    font-weight: 900;
+  }
+
+  .merch-checkout-button {
+    width: 100%;
+    min-height: 51px;
+    border: 0;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #f0d98f, #c79c35);
+    color: #090909;
+    font: inherit;
+    font-weight: 900;
+    cursor: pointer;
+  }
+
+  .merch-checkout-button:disabled {
+    opacity: 0.45;
+  }
+
+  @media (max-width: 850px) {
+    .merch-product-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .merch-gallery {
+      position: static;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .merch-product-page {
+      padding: 92px 16px 70px;
+    }
+
+    .merch-product-topbar {
+      align-items: flex-start;
+    }
+  }
+</style>
+
+<section
+  class="merch-product-page"
+  data-product-id="{{ product.id }}"
+  data-product-name="{{ product.name }}"
+>
+  <div class="merch-product-shell">
+    <div class="merch-product-topbar">
+      <a class="merch-back-link" href="/merch">← Back to Merch</a>
+
+      <button class="merch-cart-button" type="button" id="openMerchCart">
+        Cart
+        <span class="merch-cart-count" id="merchCartCount">0</span>
+      </button>
+    </div>
+
+    <div class="merch-product-layout">
+      <div class="merch-gallery">
+        <div class="merch-main-image">
+          <img
+            id="merchMainImage"
+            src="{{ url_for('static', filename=product.colors[0].image) }}"
+            alt="{{ product.name }} in {{ product.colors[0].name }}"
+          >
+        </div>
+
+        <div class="merch-thumbnail-row">
+          {% for color in product.colors %}
+          <button
+            class="merch-thumbnail {% if loop.first %}active{% endif %}"
+            type="button"
+            data-color="{{ color.name }}"
+            data-image="{{ url_for('static', filename=color.image) }}"
+          >
+            <img
+              src="{{ url_for('static', filename=color.image) }}"
+              alt="{{ product.name }} in {{ color.name }}"
+            >
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="merch-product-info">
+        <p class="merch-product-label">Made to Order</p>
+        <h1>{{ product.name }}</h1>
+
+        <strong class="merch-product-price" id="merchProductPrice">
+          ${{ "%.2f"|format(product.starting_price) }}
+        </strong>
+
+        <p class="merch-product-description">
+          {{ product.description }}
+        </p>
+
+        <div class="merch-option-group">
+          <div class="merch-option-heading">
+            <span>Color</span>
+            <span id="selectedColorLabel">{{ product.colors[0].name }}</span>
+          </div>
+
+          <div class="merch-color-options">
+            {% for color in product.colors %}
+            <button
+              class="merch-color-option {% if loop.first %}active{% endif %}"
+              type="button"
+              data-color="{{ color.name }}"
+              data-image="{{ url_for('static', filename=color.image) }}"
+            >
+              {{ color.name }}
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="merch-option-group">
+          <div class="merch-option-heading">
+            <span>Size</span>
+            <span id="selectedSizeLabel">{{ product.sizes[0].name }}</span>
+          </div>
+
+          <div class="merch-size-options">
+            {% for size in product.sizes %}
+            <button
+              class="merch-size-option {% if loop.first %}active{% endif %}"
+              type="button"
+              data-size="{{ size.value }}"
+              data-size-name="{{ size.name }}"
+              data-price="{{ "%.2f"|format(size.price) }}"
+            >
+              {{ size.value }}
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="merch-option-group">
+          <div class="merch-option-heading">
+            <span>Quantity</span>
+          </div>
+
+          <div class="merch-quantity-control">
+            <button type="button" id="decreaseMerchQuantity">−</button>
+            <input id="merchQuantity" type="number" value="1" min="1" max="10" readonly>
+            <button type="button" id="increaseMerchQuantity">+</button>
+          </div>
+        </div>
+
+        <button class="merch-add-button" type="button" id="addMerchToCart">
+          Add to Cart — ${{ "%.2f"|format(product.starting_price) }}
+        </button>
+
+        <p class="merch-order-note">
+          <strong>Made to order:</strong>
+          Please allow approximately {{ product.production_time }} for production.
+        </p>
+
+        <ul class="merch-detail-list">
+          {% for detail in product.details %}
+          <li>{{ detail }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="merch-cart-overlay" id="merchCartOverlay"></div>
+
+<aside class="merch-cart-drawer" id="merchCartDrawer" aria-hidden="true">
+  <div class="merch-cart-header">
+    <h2>Your Cart</h2>
+    <button class="merch-cart-close" type="button" id="closeMerchCart">×</button>
+  </div>
+
+  <div class="merch-cart-items" id="merchCartItems"></div>
+
+  <div class="merch-cart-footer">
+    <div class="merch-cart-subtotal">
+      <span>Subtotal</span>
+      <span id="merchCartSubtotal">$0.00</span>
+    </div>
+
+    <button class="merch-checkout-button" type="button" id="merchCheckoutButton" disabled>
+      Continue to Checkout
+    </button>
+  </div>
+</aside>
+
+<script>
+  (() => {
+    const CART_KEY = "jukeboxMerchCart";
+
+    const page = document.querySelector(".merch-product-page");
+    const productId = page.dataset.productId;
+    const productName = page.dataset.productName;
+
+    const mainImage = document.getElementById("merchMainImage");
+    const priceElement = document.getElementById("merchProductPrice");
+    const colorLabel = document.getElementById("selectedColorLabel");
+    const sizeLabel = document.getElementById("selectedSizeLabel");
+    const quantityInput = document.getElementById("merchQuantity");
+    const addButton = document.getElementById("addMerchToCart");
+
+    const drawer = document.getElementById("merchCartDrawer");
+    const overlay = document.getElementById("merchCartOverlay");
+    const cartItems = document.getElementById("merchCartItems");
+    const cartCount = document.getElementById("merchCartCount");
+    const subtotalElement = document.getElementById("merchCartSubtotal");
+    const checkoutButton = document.getElementById("merchCheckoutButton");
+
+    let selectedColor = document.querySelector(".merch-color-option.active").dataset.color;
+    let selectedImage = document.querySelector(".merch-color-option.active").dataset.image;
+    let selectedSize = document.querySelector(".merch-size-option.active").dataset.size;
+    let selectedSizeName = document.querySelector(".merch-size-option.active").dataset.sizeName;
+    let selectedPrice = Number(document.querySelector(".merch-size-option.active").dataset.price);
+
+    let cart = [];
+
+    try {
+      const stored = JSON.parse(localStorage.getItem(CART_KEY) || "[]");
+      cart = Array.isArray(stored) ? stored : [];
+    } catch (error) {
+      cart = [];
+    }
+
+    function money(value) {
+      return `$${Number(value).toFixed(2)}`;
+    }
+
+    function saveCart() {
+      localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    }
+
+    function updateProductTotal() {
+      priceElement.textContent = money(selectedPrice);
+      addButton.textContent =
+        `Add to Cart — ${money(selectedPrice * Number(quantityInput.value))}`;
+    }
+
+    function setColor(color, image) {
+      selectedColor = color;
+      selectedImage = image;
+      colorLabel.textContent = color;
+
+      document.querySelectorAll(".merch-color-option").forEach((button) => {
+        button.classList.toggle("active", button.dataset.color === color);
+      });
+
+      document.querySelectorAll(".merch-thumbnail").forEach((button) => {
+        button.classList.toggle("active", button.dataset.color === color);
+      });
+
+      mainImage.classList.add("is-changing");
+
+      setTimeout(() => {
+        mainImage.src = image;
+        mainImage.alt = `${productName} in ${color}`;
+        mainImage.classList.remove("is-changing");
+      }, 100);
+    }
+
+    document.querySelectorAll(".merch-color-option").forEach((button) => {
+      button.addEventListener("click", () => {
+        setColor(button.dataset.color, button.dataset.image);
+      });
+    });
+
+    document.querySelectorAll(".merch-thumbnail").forEach((button) => {
+      button.addEventListener("click", () => {
+        setColor(button.dataset.color, button.dataset.image);
+      });
+    });
+
+    document.querySelectorAll(".merch-size-option").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".merch-size-option").forEach((option) => {
+          option.classList.remove("active");
+        });
+
+        button.classList.add("active");
+        selectedSize = button.dataset.size;
+        selectedSizeName = button.dataset.sizeName;
+        selectedPrice = Number(button.dataset.price);
+        sizeLabel.textContent = selectedSizeName;
+        updateProductTotal();
+      });
+    });
+
+    document.getElementById("decreaseMerchQuantity").addEventListener("click", () => {
+      quantityInput.value = Math.max(1, Number(quantityInput.value) - 1);
+      updateProductTotal();
+    });
+
+    document.getElementById("increaseMerchQuantity").addEventListener("click", () => {
+      quantityInput.value = Math.min(10, Number(quantityInput.value) + 1);
+      updateProductTotal();
+    });
+
+    function renderCart() {
+      const count = cart.reduce(
+        (sum, item) => sum + Number(item.quantity),
+        0
+      );
+
+      const subtotal = cart.reduce(
+        (sum, item) => sum + Number(item.price) * Number(item.quantity),
+        0
+      );
+
+      cartCount.textContent = count;
+      subtotalElement.textContent = money(subtotal);
+      checkoutButton.disabled = cart.length === 0;
+
+      if (!cart.length) {
+        cartItems.innerHTML = `
+          <div class="merch-empty-cart">
+            <div>
+              <strong>Your cart is empty.</strong><br>
+              Add a shirt to begin your order.
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      cartItems.innerHTML = cart.map((item) => `
+        <article class="merch-cart-item">
+          <img src="${item.image}" alt="${item.name} in ${item.color}">
+          <div>
+            <h3>${item.name}</h3>
+            <p>${item.color} · ${item.size}<br>Quantity: ${item.quantity}</p>
+            <div class="merch-cart-item-bottom">
+              <span class="merch-cart-item-price">
+                ${money(Number(item.price) * Number(item.quantity))}
+              </span>
+              <button
+                class="merch-cart-remove"
+                type="button"
+                data-cart-key="${item.cartKey}"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </article>
+      `).join("");
+
+      cartItems.querySelectorAll(".merch-cart-remove").forEach((button) => {
+        button.addEventListener("click", () => {
+          cart = cart.filter((item) => item.cartKey !== button.dataset.cartKey);
+          saveCart();
+          renderCart();
+        });
+      });
+    }
+
+    addButton.addEventListener("click", () => {
+      const quantity = Number(quantityInput.value);
+      const cartKey = `${productId}__${selectedColor}__${selectedSize}`;
+      const existing = cart.find((item) => item.cartKey === cartKey);
+
+      if (existing) {
+        existing.quantity = Math.min(10, Number(existing.quantity) + quantity);
+      } else {
+        cart.push({
+          cartKey,
+          productId,
+          name: productName,
+          color: selectedColor,
+          size: selectedSize,
+          sizeName: selectedSizeName,
+          price: selectedPrice,
+          quantity,
+          image: selectedImage
+        });
+      }
+
+      saveCart();
+      renderCart();
+      openCart();
+    });
+
+    function openCart() {
+      drawer.classList.add("open");
+      overlay.classList.add("open");
+      drawer.setAttribute("aria-hidden", "false");
+      document.body.classList.add("merch-cart-open");
+    }
+
+    function closeCart() {
+      drawer.classList.remove("open");
+      overlay.classList.remove("open");
+      drawer.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("merch-cart-open");
+    }
+
+    document.getElementById("openMerchCart").addEventListener("click", openCart);
+    document.getElementById("closeMerchCart").addEventListener("click", closeCart);
+    overlay.addEventListener("click", closeCart);
+
+    checkoutButton.addEventListener("click", () => {
+      if (cart.length) {
+        window.location.href = "/merch/checkout";
+      }
+    });
+
+    updateProductTotal();
+    renderCart();
+  })();
+</script>
+{% endblock %}

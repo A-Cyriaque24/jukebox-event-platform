@@ -1,0 +1,605 @@
+{% extends "base.html" %}
+
+{% block title %}Merch Checkout | The Jukebox Lounge NC{% endblock %}
+
+{% block content %}
+<style>
+  .merch-checkout-page {
+    min-height: 100vh;
+    padding: 120px 24px 80px;
+    background:
+      radial-gradient(circle at top, rgba(217, 182, 87, 0.12), transparent 40%),
+      #080808;
+  }
+
+  .merch-checkout-shell {
+    width: min(1160px, 100%);
+    margin: 0 auto;
+  }
+
+  .merch-checkout-heading {
+    margin-bottom: 34px;
+  }
+
+  .merch-checkout-heading .eyebrow {
+    margin: 0 0 10px;
+    color: #d9b657;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .merch-checkout-heading h1 {
+    margin: 0 0 12px;
+    font-size: clamp(2.3rem, 6vw, 4.4rem);
+    line-height: 1;
+  }
+
+  .merch-checkout-heading p {
+    max-width: 680px;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.68);
+    line-height: 1.65;
+  }
+
+  .merch-checkout-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(330px, 0.72fr);
+    gap: 30px;
+    align-items: start;
+  }
+
+  .merch-checkout-card {
+    padding: clamp(22px, 4vw, 34px);
+    border: 1px solid rgba(217, 182, 87, 0.25);
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.045);
+  }
+
+  .merch-checkout-card h2 {
+    margin: 0 0 22px;
+    font-size: 1.45rem;
+  }
+
+  .merch-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .merch-form-field {
+    display: grid;
+    gap: 8px;
+  }
+
+  .merch-form-field.full {
+    grid-column: 1 / -1;
+  }
+
+  .merch-form-field label,
+  .merch-fulfillment-title {
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 0.88rem;
+    font-weight: 800;
+  }
+
+  .merch-form-field input {
+    width: 100%;
+    min-height: 50px;
+    box-sizing: border-box;
+    padding: 12px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.045);
+    color: #fff;
+    font: inherit;
+  }
+
+  .merch-form-field input:focus {
+    outline: 2px solid rgba(217, 182, 87, 0.35);
+    border-color: #d9b657;
+  }
+
+  .merch-fulfillment-section {
+    margin-top: 28px;
+    padding-top: 26px;
+    border-top: 1px solid rgba(255, 255, 255, 0.11);
+  }
+
+  .merch-fulfillment-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .merch-fulfillment-option {
+    position: relative;
+  }
+
+  .merch-fulfillment-option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .merch-fulfillment-option label {
+    min-height: 92px;
+    padding: 16px;
+    box-sizing: border-box;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 14px;
+    display: grid;
+    align-content: center;
+    gap: 5px;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .merch-fulfillment-option label strong {
+    color: #fff;
+  }
+
+  .merch-fulfillment-option label span {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.84rem;
+    line-height: 1.4;
+  }
+
+  .merch-fulfillment-option input:checked + label {
+    border-color: #d9b657;
+    background: rgba(217, 182, 87, 0.11);
+  }
+
+  .merch-shipping-fields {
+    display: none;
+    margin-top: 22px;
+  }
+
+  .merch-shipping-fields.visible {
+    display: block;
+  }
+
+  .merch-order-summary {
+    position: sticky;
+    top: 105px;
+  }
+
+  .merch-summary-items {
+    display: grid;
+    gap: 16px;
+  }
+
+  .merch-summary-item {
+    display: grid;
+    grid-template-columns: 78px minmax(0, 1fr);
+    gap: 13px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .merch-summary-item img {
+    width: 78px;
+    height: 78px;
+    object-fit: cover;
+    border-radius: 11px;
+    background: #eee9df;
+  }
+
+  .merch-summary-item h3 {
+    margin: 0 0 5px;
+    font-size: 0.96rem;
+  }
+
+  .merch-summary-item p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.83rem;
+    line-height: 1.45;
+  }
+
+  .merch-summary-item-price {
+    display: block;
+    margin-top: 5px;
+    color: #f0d98f;
+    font-weight: 900;
+  }
+
+  .merch-summary-totals {
+    margin-top: 20px;
+    display: grid;
+    gap: 12px;
+  }
+
+  .merch-summary-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .merch-summary-row.total {
+    margin-top: 5px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    color: #fff;
+    font-size: 1.15rem;
+    font-weight: 900;
+  }
+
+  .merch-payment-button {
+    width: 100%;
+    min-height: 55px;
+    margin-top: 24px;
+    border: 0;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #f0d98f, #c79c35);
+    color: #090909;
+    font: inherit;
+    font-weight: 900;
+    cursor: pointer;
+  }
+
+  .merch-payment-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .merch-checkout-note {
+    margin: 13px 0 0;
+    color: rgba(255, 255, 255, 0.5);
+    text-align: center;
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+  .merch-empty-checkout {
+    padding: 45px 20px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.65);
+  }
+
+  .merch-empty-checkout a {
+    color: #f0d98f;
+  }
+
+  @media (max-width: 850px) {
+    .merch-checkout-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .merch-order-summary {
+      position: static;
+    }
+  }
+
+  @media (max-width: 620px) {
+    .merch-checkout-page {
+      padding: 95px 16px 60px;
+    }
+
+    .merch-form-grid,
+    .merch-fulfillment-options {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<section class="merch-checkout-page">
+  <div class="merch-checkout-shell">
+    <header class="merch-checkout-heading">
+      <p class="eyebrow">Secure Merch Checkout</p>
+      <h1>Complete Your Order</h1>
+      <p>
+        Enter your information and choose local pickup or flat-rate shipping.
+        You will review the final total before completing payment through Square.
+      </p>
+    </header>
+
+    <div class="merch-checkout-layout">
+      <form class="merch-checkout-card" id="merchCheckoutForm">
+        <h2>Customer Information</h2>
+
+        <div class="merch-form-grid">
+          <div class="merch-form-field full">
+            <label for="merchCustomerName">Full name</label>
+            <input id="merchCustomerName" name="customer_name" type="text" required>
+          </div>
+
+          <div class="merch-form-field">
+            <label for="merchCustomerEmail">Email address</label>
+            <input id="merchCustomerEmail" name="customer_email" type="email" required>
+          </div>
+
+          <div class="merch-form-field">
+            <label for="merchCustomerPhone">Phone number</label>
+            <input id="merchCustomerPhone" name="customer_phone" type="tel" required>
+          </div>
+        </div>
+
+        <div class="merch-fulfillment-section">
+          <div class="merch-fulfillment-title">How would you like to receive your order?</div>
+
+          <div class="merch-fulfillment-options">
+            <div class="merch-fulfillment-option">
+              <input
+                id="merchPickup"
+                name="fulfillment_method"
+                type="radio"
+                value="pickup"
+                checked
+              >
+              <label for="merchPickup">
+                <strong>Local Pickup — Free</strong>
+                <span>Durham pickup details will be provided after purchase.</span>
+              </label>
+            </div>
+
+            <div class="merch-fulfillment-option">
+              <input
+                id="merchShipping"
+                name="fulfillment_method"
+                type="radio"
+                value="shipping"
+              >
+              <label for="merchShipping">
+                <strong>Flat-Rate Shipping — $8.95</strong>
+                <span>Available for orders shipped within the United States.</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="merch-shipping-fields" id="merchShippingFields">
+            <div class="merch-form-grid">
+              <div class="merch-form-field full">
+                <label for="merchAddress1">Street address</label>
+                <input id="merchAddress1" name="shipping_address_1" type="text">
+              </div>
+
+              <div class="merch-form-field full">
+                <label for="merchAddress2">Apartment, suite, etc. — optional</label>
+                <input id="merchAddress2" name="shipping_address_2" type="text">
+              </div>
+
+              <div class="merch-form-field">
+                <label for="merchCity">City</label>
+                <input id="merchCity" name="shipping_city" type="text">
+              </div>
+
+              <div class="merch-form-field">
+                <label for="merchState">State</label>
+                <input id="merchState" name="shipping_state" type="text" maxlength="2">
+              </div>
+
+              <div class="merch-form-field">
+                <label for="merchZip">ZIP code</label>
+                <input id="merchZip" name="shipping_zip" type="text">
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <aside class="merch-checkout-card merch-order-summary">
+        <h2>Order Summary</h2>
+
+        <div id="merchCheckoutItems"></div>
+
+        <div class="merch-summary-totals" id="merchCheckoutTotals" hidden>
+          <div class="merch-summary-row">
+            <span>Subtotal</span>
+            <span id="merchCheckoutSubtotal">$0.00</span>
+          </div>
+
+          <div class="merch-summary-row">
+            <span>Shipping</span>
+            <span id="merchCheckoutShipping">Free</span>
+          </div>
+
+          <div class="merch-summary-row">
+            <span>Tax</span>
+            <span>Calculated during payment</span>
+          </div>
+
+          <div class="merch-summary-row total">
+            <span>Current total</span>
+            <span id="merchCheckoutTotal">$0.00</span>
+          </div>
+        </div>
+
+        <button
+          class="merch-payment-button"
+          id="merchPaymentButton"
+          type="submit"
+          form="merchCheckoutForm"
+          disabled
+        >
+          Continue to Secure Payment
+        </button>
+
+        <p class="merch-checkout-note">
+          Made-to-order items require approximately 7–14 business days for production.
+        </p>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<script>
+  (() => {
+    const CART_STORAGE_KEY = "jukeboxMerchCart";
+    const SHIPPING_PRICE = 8.95;
+
+    const form = document.getElementById("merchCheckoutForm");
+    const itemsElement = document.getElementById("merchCheckoutItems");
+    const totalsElement = document.getElementById("merchCheckoutTotals");
+    const subtotalElement = document.getElementById("merchCheckoutSubtotal");
+    const shippingElement = document.getElementById("merchCheckoutShipping");
+    const totalElement = document.getElementById("merchCheckoutTotal");
+    const paymentButton = document.getElementById("merchPaymentButton");
+    const shippingFields = document.getElementById("merchShippingFields");
+
+    const shippingInputs = [
+      document.getElementById("merchAddress1"),
+      document.getElementById("merchCity"),
+      document.getElementById("merchState"),
+      document.getElementById("merchZip")
+    ];
+
+    let cart = [];
+
+    try {
+      const stored = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || "[]");
+      cart = Array.isArray(stored) ? stored : [];
+    } catch (error) {
+      cart = [];
+    }
+
+    function money(value) {
+      return `$${Number(value).toFixed(2)}`;
+    }
+
+    function selectedFulfillment() {
+      return document.querySelector(
+        'input[name="fulfillment_method"]:checked'
+      ).value;
+    }
+
+    function updateFulfillment() {
+      const isShipping = selectedFulfillment() === "shipping";
+
+      shippingFields.classList.toggle("visible", isShipping);
+
+      shippingInputs.forEach((input) => {
+        input.required = isShipping;
+      });
+
+      renderTotals();
+    }
+
+    function renderTotals() {
+      const subtotal = cart.reduce(
+        (sum, item) => sum + Number(item.price) * Number(item.quantity),
+        0
+      );
+
+      const shipping = selectedFulfillment() === "shipping"
+        ? SHIPPING_PRICE
+        : 0;
+
+      subtotalElement.textContent = money(subtotal);
+      shippingElement.textContent = shipping ? money(shipping) : "Free";
+      totalElement.textContent = money(subtotal + shipping);
+    }
+
+    function renderCart() {
+      if (!cart.length) {
+        itemsElement.innerHTML = `
+          <div class="merch-empty-checkout">
+            Your cart is empty.<br>
+            <a href="/merch">Return to the merch store</a>
+          </div>
+        `;
+
+        totalsElement.hidden = true;
+        paymentButton.disabled = true;
+        return;
+      }
+
+      itemsElement.className = "merch-summary-items";
+      itemsElement.innerHTML = cart.map((item) => `
+        <article class="merch-summary-item">
+          <img src="${item.image}" alt="${item.name} in ${item.color}">
+          <div>
+            <h3>${item.name}</h3>
+            <p>
+              ${item.color} · ${item.size}<br>
+              Quantity: ${item.quantity}
+            </p>
+            <span class="merch-summary-item-price">
+              ${money(Number(item.price) * Number(item.quantity))}
+            </span>
+          </div>
+        </article>
+      `).join("");
+
+      totalsElement.hidden = false;
+      paymentButton.disabled = false;
+      renderTotals();
+    }
+
+    document.querySelectorAll(
+      'input[name="fulfillment_method"]'
+    ).forEach((input) => {
+      input.addEventListener("change", updateFulfillment);
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      if (!form.reportValidity() || !cart.length) {
+        return;
+      }
+
+      const originalButtonText = paymentButton.textContent;
+      paymentButton.disabled = true;
+      paymentButton.textContent = "Creating Secure Checkout...";
+
+      const formData = new FormData(form);
+
+      const payload = {
+        customer_name: formData.get("customer_name"),
+        customer_email: formData.get("customer_email"),
+        customer_phone: formData.get("customer_phone"),
+        fulfillment_method: formData.get("fulfillment_method"),
+        shipping_address_1: formData.get("shipping_address_1") || "",
+        shipping_address_2: formData.get("shipping_address_2") || "",
+        shipping_city: formData.get("shipping_city") || "",
+        shipping_state: formData.get("shipping_state") || "",
+        shipping_zip: formData.get("shipping_zip") || "",
+        cart: cart
+      };
+
+      try {
+        const response = await fetch("/merch/checkout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        let result = {};
+
+        try {
+          result = await response.json();
+        } catch (error) {
+          result = {};
+        }
+
+        if (!response.ok || !result.success || !result.checkout_url) {
+          throw new Error(
+            result.error ||
+            "We could not create the payment page. Please try again."
+          );
+        }
+
+        sessionStorage.setItem(
+          "jukeboxPendingMerchOrder",
+          result.order_number || ""
+        );
+
+        window.location.href = result.checkout_url;
+      } catch (error) {
+        alert(error.message);
+        paymentButton.disabled = false;
+        paymentButton.textContent = originalButtonText;
+      }
+    });
+
+    updateFulfillment();
+    renderCart();
+  })();
+</script>
+{% endblock %}

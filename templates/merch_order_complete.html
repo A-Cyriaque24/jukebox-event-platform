@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}Order Confirmed | The Jukebox Lounge NC{% endblock %}
+
+{% block content %}
+<style>
+  .merch-complete-page {
+    min-height: 100vh;
+    padding: 130px 24px 80px;
+    background:
+      radial-gradient(circle at top, rgba(217, 182, 87, 0.15), transparent 42%),
+      #080808;
+  }
+
+  .merch-complete-card {
+    width: min(760px, 100%);
+    margin: 0 auto;
+    padding: clamp(28px, 6vw, 56px);
+    border: 1px solid rgba(217, 182, 87, 0.3);
+    border-radius: 28px;
+    background: rgba(255, 255, 255, 0.045);
+    text-align: center;
+  }
+
+  .merch-complete-icon {
+    width: 76px;
+    height: 76px;
+    margin: 0 auto 24px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, #f0d98f, #c79c35);
+    color: #080808;
+    font-size: 2rem;
+    font-weight: 900;
+  }
+
+  .merch-complete-eyebrow {
+    margin: 0 0 10px;
+    color: #d9b657;
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .merch-complete-card h1 {
+    margin: 0 0 18px;
+    font-size: clamp(2.3rem, 7vw, 4.5rem);
+    line-height: 1;
+  }
+
+  .merch-complete-message {
+    max-width: 610px;
+    margin: 0 auto 28px;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.75;
+  }
+
+  .merch-order-details {
+    margin: 28px 0;
+    padding: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    border-radius: 16px;
+    background: rgba(0, 0, 0, 0.24);
+    text-align: left;
+  }
+
+  .merch-order-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 10px 0;
+    color: rgba(255, 255, 255, 0.68);
+  }
+
+  .merch-order-row + .merch-order-row {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .merch-order-row strong {
+    color: #f0d98f;
+    text-align: right;
+  }
+
+  .merch-order-items {
+    margin-top: 20px;
+    display: grid;
+    gap: 10px;
+    text-align: left;
+  }
+
+  .merch-order-item {
+    padding: 13px 15px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.72);
+    line-height: 1.55;
+  }
+
+  .merch-complete-actions {
+    margin-top: 28px;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .merch-complete-actions a {
+    min-height: 48px;
+    padding: 12px 20px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-weight: 900;
+  }
+
+  .merch-primary-link {
+    background: linear-gradient(135deg, #f0d98f, #c79c35);
+    color: #090909;
+  }
+
+  .merch-secondary-link {
+    border: 1px solid rgba(217, 182, 87, 0.32);
+    color: #fff;
+  }
+
+  @media (max-width: 520px) {
+    .merch-complete-page {
+      padding: 105px 16px 60px;
+    }
+
+    .merch-order-row {
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .merch-order-row strong {
+      text-align: left;
+    }
+  }
+</style>
+
+<section class="merch-complete-page">
+  <div class="merch-complete-card">
+    <div class="merch-complete-icon">✓</div>
+
+    <p class="merch-complete-eyebrow">Payment Received</p>
+    <h1>Thank You for Your Order</h1>
+
+    <p class="merch-complete-message">
+      Your Jukebox merch order has been received. Because every shirt is made
+      to order, please allow approximately 7–14 business days for production.
+      You will receive updates using the contact information provided.
+    </p>
+
+    {% if order %}
+    <div class="merch-order-details">
+      <div class="merch-order-row">
+        <span>Order number</span>
+        <strong>{{ order.order_number }}</strong>
+      </div>
+
+      <div class="merch-order-row">
+        <span>Customer</span>
+        <strong>{{ order.customer_name }}</strong>
+      </div>
+
+      <div class="merch-order-row">
+        <span>Fulfillment</span>
+        <strong>
+          {% if order.fulfillment_method == "shipping" %}
+            Flat-Rate Shipping
+          {% else %}
+            Local Pickup
+          {% endif %}
+        </strong>
+      </div>
+
+      <div class="merch-order-row">
+        <span>Payment status</span>
+        <strong>{{ order.payment_status }}</strong>
+      </div>
+
+      <div class="merch-order-row">
+        <span>Order total</span>
+        <strong>${{ "%.2f"|format(order.total_cents / 100) }}</strong>
+      </div>
+
+      {% if items %}
+      <div class="merch-order-items">
+        {% for item in items %}
+        <div class="merch-order-item">
+          <strong>{{ item.name }}</strong><br>
+          {{ item.color }} · {{ item.size }} · Quantity {{ item.quantity }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="merch-complete-actions">
+      <a class="merch-primary-link" href="/merch">Continue Shopping</a>
+      <a class="merch-secondary-link" href="/">Return Home</a>
+    </div>
+  </div>
+</section>
+
+<script>
+  localStorage.removeItem("jukeboxMerchCart");
+  sessionStorage.removeItem("jukeboxPendingMerchOrder");
+</script>
+{% endblock %}
