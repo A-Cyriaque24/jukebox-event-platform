@@ -14,8 +14,8 @@
 
     <div class="events-refresh-grid">
       {% for event in events %}
-      {% if event.status == "upcoming" %}
-      <article class="event-refresh-card">
+      {% if event.status in ["upcoming", "postponed"] %}
+      <article class="event-refresh-card{% if event.status == 'postponed' %} postponed{% endif %}">
         <a href="{{ url_for('event_detail', event_name=event.name) }}" class="event-refresh-link">
           <div class="event-refresh-image">
             {% if event.flyer.startswith('/static/') %}
@@ -27,7 +27,9 @@
 
           <div class="event-refresh-content">
             <span class="event-refresh-pill">
-              {% if event.tickets_coming_soon %}
+              {% if event.status == "postponed" %}
+                Event Postponed
+              {% elif event.tickets_coming_soon %}
                 Tickets Coming Soon
               {% else %}
                 Limited Availability
@@ -39,7 +41,9 @@
             <p>Theme: Grown &amp; Sexy</p>
             {% else %}
             <h3>{{ event.name }}</h3>
-            {% if event.name == "Juneteenth Celebration" %}
+            {% if event.status == "postponed" %}
+            <p><strong>Postponed due to weather conditions.</strong> A new date will be announced soon.</p>
+            {% elif event.name == "Juneteenth Celebration" %}
             <p>Theme: {{ event.ticket_label }}</p>
             {% else %}
             <p>Tap in for event details, ticket options, and the full vibe.</p>
@@ -47,7 +51,9 @@
             {% endif %}
 
             <span class="event-refresh-btn">
-              {% if event.tickets_coming_soon %}
+              {% if event.status == "postponed" %}
+                Read Postponement Update
+              {% elif event.tickets_coming_soon %}
                 View Event Details
               {% else %}
                 View Event

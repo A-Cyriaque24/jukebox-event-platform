@@ -59,7 +59,32 @@
 </section>
 
 <section class="ticket-section">
-    {% if event.name == "Battle of the DJs" %}
+    {% if event.status == "postponed" %}
+    <div class="ticket-box" style="width:min(980px,100%);border:2px solid #D4AF37;background:#0f0f0f;text-align:center;margin:0 auto 24px;padding:32px 24px;">
+        <p style="color:#D4AF37;font-size:15px;font-weight:800;letter-spacing:2px;margin:0 0 8px;">
+            IMPORTANT EVENT UPDATE
+        </p>
+
+        <h3 style="font-size:34px;line-height:1.2;margin:0 0 16px;color:#fff;">
+            BATTLE OF THE DJS PART TWO HAS BEEN POSTPONED
+        </h3>
+
+        <p style="font-size:18px;color:#fff;line-height:1.7;margin:0 auto 14px;max-width:820px;">
+            Due to weather conditions, the event has been postponed. The safety of our guests,
+            DJs, staff, and partners is our top priority.
+        </p>
+
+        <p style="font-size:17px;color:#D4AF37;line-height:1.7;margin:0 auto 14px;max-width:820px;">
+            A new event date will be announced soon. All previously purchased tickets will remain
+            valid for the rescheduled date.
+        </p>
+
+        <p style="font-size:16px;color:#fff;line-height:1.7;margin:0 auto;max-width:820px;">
+            Online ticket sales are currently paused. Please continue checking our website and
+            social media pages for updates.
+        </p>
+    </div>
+    {% elif event.name == "Battle of the DJs" %}
     <div class="ticket-box" style="width:min(980px,100%);border:2px solid #D4AF37;background:#0f0f0f;text-align:center;margin:0 auto 24px;">
         <h3 style="font-size:30px;line-height:1.2;margin-bottom:10px;">ONLINE TICKET SALES ARE NOW CLOSED</h3>
         <p style="font-size:18px;color:#fff;line-height:1.6;margin:0;">
@@ -71,6 +96,7 @@
     </div>
     {% endif %}
 
+    {% if event.status != "postponed" %}
     <div class="ticket-grid {% if event.name == 'Battle of the DJs' %}battle-ticket-row{% endif %}">
         {% if is_quiet_storm %}
         <div class="ticket-box">
@@ -123,6 +149,7 @@
         {% endfor %}
         {% endif %}
     </div>
+    {% endif %}
 
     <section class="full-ticket-policy" id="ticket-refund-policy">
         <p class="ticket-policy-kicker">Please Review Before Purchasing</p>
