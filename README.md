@@ -60,10 +60,3 @@ Designed, developed, and maintain the entire platform independently, including:
 ## 📸 Screenshots
 
 ![Dashboard Overview](images/jukebox-platform-overview.png)
-
-- Dashboard Overview
-- Ticket Management
-- Revenue Dashboard
-- CRM
-- Email Campaigns
-- Event Management
