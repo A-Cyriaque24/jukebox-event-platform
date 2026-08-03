@@ -151,3 +151,9 @@ Rather than building a traditional event website, I designed a centralized opera
 Events, ticket sales, memberships, CRM contacts, email campaigns, guest check-in, merchandise orders, and financial reporting all work together through a unified dashboard, reducing manual work and eliminating duplicate administrative processes.
 
 This architecture allows venue owners to manage an entire event business from a single application instead of relying on multiple disconnected tools.
+
+### Event Status and Ticket Sales Control
+
+The platform supports real-time event status changes, including active, upcoming, past, and postponed events.
+
+When an event is postponed, ticket sales can be paused while preserving existing ticket holder records, revenue history, guest lists, and future communication workflows.
