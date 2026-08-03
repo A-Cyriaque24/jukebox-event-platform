@@ -157,3 +157,12 @@ This architecture allows venue owners to manage an entire event business from a 
 The platform supports real-time event status changes, including active, upcoming, past, and postponed events.
 
 When an event is postponed, ticket sales can be paused while preserving existing ticket holder records, revenue history, guest lists, and future communication workflows.
+
+## 🧱 Technical Architecture
+
+- **Frontend:** HTML, CSS, JavaScript
+- **Backend:** Python, Flask
+- **Database:** SQLite
+- **Payments:** Square API
+- **Deployment:** Render
+- **Version Control:** Git & GitHub
