@@ -166,3 +166,11 @@ When an event is postponed, ticket sales can be paused while preserving existing
 - **Payments:** Square API
 - **Deployment:** Render
 - **Version Control:** Git & GitHub
+
+## 🔮 Future Roadmap
+
+- Add advanced analytics for event trends and customer behavior
+- Expand email segmentation for targeted campaigns
+- Improve merchandise order reporting and fulfillment workflows
+- Add role-based permissions for different admin users
+- Build additional automation around event status changes and customer communication
