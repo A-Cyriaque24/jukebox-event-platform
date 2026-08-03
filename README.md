@@ -60,3 +60,79 @@ Designed, developed, and maintain the entire platform independently, including:
 ## 📸 Screenshots
 
 ![Dashboard Overview](images/jukebox-platform-overview.png)
+
+## 📊 Dashboard Overview
+
+### Executive Dashboard
+
+![Dashboard Home](images/dashboard-overview.png)
+
+The central command center provides administrators with a real-time overview of ticket sales, memberships, VIP activity, revenue, and operational metrics from a single dashboard.
+
+---
+
+### Event Operations
+
+![Event Management](images/event-management.png)
+
+Manage upcoming events, attendance, guest lists, VIP booths, ticket inventory, and live event operations from one interface.
+
+---
+
+### Revenue & Financial Reporting
+
+![Revenue Dashboard](images/revenue-dashboard.png)
+
+Track ticket sales, memberships, expenses, profit/loss, recurring revenue, and event financial performance.
+
+---
+
+## 💬 CRM & Communications
+
+### Customer Relationship Management
+
+![CRM Dashboard](images/contact-log.png)
+
+Manage performers, DJs, vendors, partners, and future event contacts in a searchable CRM with categorization and notes.
+
+---
+
+### Website Inquiries & Lead Management
+
+![Messages Dashboard](images/messages-dashboard.png)
+
+Track website inquiries, contact requests, applications, and follow-up activity from one centralized dashboard.
+
+---
+
+### Email Campaign Builder
+
+![Email Campaigns](images/email-campaigns.png)
+
+Create, preview, test, and send branded email campaigns to VIP members, customers, performers, vendors, and targeted audiences.
+
+---
+
+## 🎟 Operations & Live Event Management
+
+### Live Guest Check-In
+
+![Guest Check-In](images/guest-checkin.png)
+
+Search attendees instantly by name, email, phone number, or order number while checking guests into live events with support for partial and full ticket validation.
+
+---
+
+### Membership Management
+
+![Membership Dashboard](images/membership-dashboard.png)
+
+Monitor recurring memberships, active subscribers, projected annual revenue, and VIP community engagement from a centralized membership dashboard.
+
+---
+
+### Event Guest List Management
+
+![Guest List Management](images/guest-list-management.png)
+
+View every attendee, ticket type, payment source, attendance status, and check-in history while managing complete guest lists across multiple events.
