@@ -1,6 +1,9 @@
 # 🎟️ The Jukebox Event Platform
 
 A full-stack event management platform built to help live entertainment venues manage events, ticket sales, memberships, customer relationships, email campaigns, reporting, and day-to-day operations from one centralized system.
+## 📸 Screenshots
+
+![Dashboard Overview](images/jukebox-platform-overview.png)
 
 ## 🚀 Key Features
 
@@ -56,10 +59,6 @@ Designed, developed, and maintain the entire platform independently, including:
 - Centralizes customer communication with CRM and email campaigns
 - Provides business reporting to help monitor sales, attendance, and revenue
 - Designed to reduce manual administrative work through workflow automation
-
-## 📸 Screenshots
-
-![Dashboard Overview](images/jukebox-platform-overview.png)
 
 ## 📊 Dashboard Overview
 
