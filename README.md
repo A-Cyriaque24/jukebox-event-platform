@@ -136,3 +136,18 @@ Monitor recurring memberships, active subscribers, projected annual revenue, and
 ![Guest List Management](images/guest-list-management.png)
 
 View every attendee, ticket type, payment source, attendance status, and check-in history while managing complete guest lists across multiple events.
+
+## 🛠 Engineering Challenges Solved
+### Event Synchronization Across Multiple Payment Sources
+
+One of the biggest engineering challenges was ensuring ticket sales remained synchronized across multiple payment providers while maintaining accurate attendance, revenue, and reporting.
+
+The platform imports purchases from Square, Eventbrite, manual door sales, complimentary tickets, and VIP booth reservations into a unified event management system while preventing duplicate records and preserving reporting accuracy.
+
+### Building an Event Platform Instead of a Ticketing Website
+
+Rather than building a traditional event website, I designed a centralized operations platform where every administrative workflow connects to the same data.
+
+Events, ticket sales, memberships, CRM contacts, email campaigns, guest check-in, merchandise orders, and financial reporting all work together through a unified dashboard, reducing manual work and eliminating duplicate administrative processes.
+
+This architecture allows venue owners to manage an entire event business from a single application instead of relying on multiple disconnected tools.
